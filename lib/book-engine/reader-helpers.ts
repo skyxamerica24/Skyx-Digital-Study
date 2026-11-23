@@ -73,26 +73,15 @@ export function parseManualPageRange(
 
   const result = new Set<number>();
   const segments = normalized.split(/[,;]+/);
-
-  for (const seg of segments) {
-    const clean = seg.trim();
-    if (!clean) continue;
-    const rangeMatch = clean.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
-    if (rangeMatch) {
-      let start = Number(rangeMatch[1]);
-      let end = Number(rangeMatch[2]);
-      if (start > end) [start, end] = [end, start];
-      start = Math.max(1, Math.min(totalPages, start));
-      end = Math.max(1, Math.min(totalPages, end));
-      for (let p = start; p <= end; p++) {
-        result.add(p);
-        if (result.size >= 30) break;
-      }
-    } else if (/^\d+$/.test(clean)) {
-      const p = Math.max(1, Math.min(totalPages, Number(clean)));
-      result.add(p);
-    }
-    if (result.size >= 30) break;
+  for (const segment of segments) {
+    const match = segment.trim().match(/^(\d+)(?:\s*[-–—]\s*(\d+))?$/);
+    if (!match) return [];
+    const first = Number(match[1]);
+    const last = Number(match[2] ?? match[1]);
+    const start = Math.min(first, last);
+    const end = Math.max(first, last);
+    if (start < 1 || end > totalPages) return [];
+    for (let page = start; page <= end && result.size < 30; page++) result.add(page);
   }
 
   return Array.from(result).sort((a, b) => a - b);

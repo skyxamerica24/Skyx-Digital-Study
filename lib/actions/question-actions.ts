@@ -68,3 +68,14 @@ export async function deleteQuestionAction(token: string | null, id: string) {
 
   return { success: true }
 }
+
+const questionBatchSchema = z.array(questionSchema.extend({id:z.string().min(1)})).min(1).max(500);
+
+export async function persistQuestions(token: string | null, input: z.infer<typeof questionBatchSchema>) {
+  await requireStoreUser(token, true);
+  const data = questionBatchSchema.parse(input);
+  return prisma.$transaction(async tx => {
+    await tx.question.createMany({data, skipDuplicates:true});
+    return tx.question.findMany({where:{id:{in:data.map(question => question.id)}}});
+  });
+}

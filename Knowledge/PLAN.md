@@ -53,3 +53,13 @@ Steps 1–4 are implemented. The PostgreSQL and TypeScript checks passed. Browse
 - Use English for all dashboard labels and status messages.
 
 Acceptance checks cover free claims, confirmed purchases, plan access and expiration, concurrent payment confirmations, account isolation, and attempted access to book content without an entitlement.
+
+## Implementation checkpoint · 24 November 2026
+
+- Book Manager publication now saves the book and extracted topics in one transaction. Repeating the same publish keeps the existing IDs. A new imported title needs a listing in Digital Products before learners can claim it or purchase it.
+- Extract Studio and AI Splitter previews can create a nested Builder draft. The administrator can edit the draft before publishing.
+- Study tab definitions and published topic tabs persist in PostgreSQL. Learner reads follow book access and published topic visibility.
+- Exam submissions use a stable attempt ID and require the signed-in account. The result screen offers a retry if saving fails. Invalid PDF page numbers leave the current page unchanged.
+- AI conversation history uses the same signed-in session as the dashboard. The readiness endpoint checks PostgreSQL.
+- PostgreSQL and HTTP verification passed for publication rollback, repeated publish and exam submission, study-tab access, chat isolation and database outage reporting.
+- Remaining work includes browser verification on Android, migration of older catalog books into Builder drafts with topic links preserved, password recovery email delivery, live AI model and voice command verification, payment gateway integration, and release to a configured host.

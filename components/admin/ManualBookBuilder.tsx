@@ -124,6 +124,11 @@ export default function ManualBookBuilder() {
             {drafts.map(draft => <option key={draft.id} value={draft.id}>{draft.document.title}</option>)}
           </select>
           <button className={button} onClick={() => openDraft()}>New Book</button>
+          <button className={button} onClick={() => {
+            setBusy(true);
+            listBookDrafts(getSessionToken()).then(setDrafts)
+              .catch(() => setStatus("Could not refresh saved drafts.")).finally(() => setBusy(false));
+          }}>Refresh Drafts</button>
           <button className={button} disabled={!document.title.trim()} onClick={() => save(false)}>Save Draft</button>
           <button className={button + " bg-indigo-700 text-white"} disabled={!document.title.trim() || !document.nodes.length} onClick={() => save(true)}>Publish</button>
           {dirty && <span className="text-sm text-slate-600">Unsaved changes</span>}

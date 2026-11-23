@@ -1,19 +1,17 @@
-'use server'
-
 import { prisma } from '../db'
 import { verifySessionToken } from '../db/auth'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { getCurrentUser } from '../db/user'
 
 /**
  * Get the current user from the session cookie (server-only, no caller-supplied ID).
  */
 async function getCurrentUserFromSession() {
-  const cookieStore = await cookies()
-  const sessionToken = cookieStore.get('skyx-session')?.value
-  if (!sessionToken) return null
-  const decoded = verifySessionToken(sessionToken)
-  if (!decoded) return null
-  return decoded
+  const authorization = (await headers()).get('authorization')
+  const token = authorization
+    ? authorization.match(/^Bearer (.+)$/i)?.[1] ?? null
+    : (await cookies()).get('skyx-session')?.value ?? null
+  return getCurrentUser(token)
 }
 
 /**
@@ -78,8 +76,8 @@ export async function createConversationAction(input: CreateConversationInput) {
   if (!user) throw new Error('Authentication required.')
 
   // Validate channel exists and is enabled
-  const channel = await resolveChannelConfig(input.channelId)
-  if (!channel) {
+  const channel = await prisma.aiChannelConfig.findUnique({ where: {channelId:input.channelId} })
+  if (channel?.isEnabled === false || (!channel && !["chat","live-voice"].includes(input.channelId))) {
     throw new Error(`Channel "${input.channelId}" is not available.`)
   }
 

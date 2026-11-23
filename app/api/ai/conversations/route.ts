@@ -14,12 +14,14 @@ export async function GET(req: NextRequest) {
     if (!channelId) {
       return NextResponse.json({ error: "channelId is required." }, { status: 400 });
     }
-    const limit = parseInt(searchParams.get("limit") || "20", 10);
+    const requested = Number(searchParams.get("limit") || "20");
+    const limit = Number.isInteger(requested) ? Math.max(1, Math.min(requested, 100)) : 20;
     const conversations = await listConversationsAction(channelId, limit);
     return NextResponse.json({ conversations });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to list conversations.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message === "Authentication required." ? 401 : message === "Conversation not found." ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }
 
@@ -54,6 +56,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to process request.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message === "Authentication required." ? 401 : message === "Conversation not found." ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

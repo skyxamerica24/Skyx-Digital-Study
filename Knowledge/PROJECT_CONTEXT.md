@@ -75,3 +75,9 @@ PostgreSQL verification covered a four-level Bangla outline, draft reload, Benga
 ## Book Library marketplace
 
 The Digital Products panel under Admin Books manages free claims, one-time prices, plan inclusion and manual payment review. Book licenses store free and purchased access by learner. Approved subscription orders record access expiration. The listing, order, and license records are separate from the original book and personal study records. Order references are unique, and repeated approvals and claims are safe to retry. See the README for payment setup.
+
+## Publication and account verification
+
+Extract Studio publishes catalog books and topics atomically. Use Create Builder Draft in Extract Studio or the AI Splitter preview to continue editing in Build Manually. Reopening a published title uses the catalog, and new imported products are unlisted until configured by an administrator. Study tabs persist in PostgreSQL and follow published topic access. A learner's timed exam submission is stored once under that account and can be retried from the results screen. Floating AI history sends the dashboard session token with its requests.
+
+Local verification used a temporary PostgreSQL database, an administrator, and two learners. It covered rejected cross-book topic IDs and rollback, repeated publication, hidden topics, imported outline order and content, study-tab access, repeated exam submissions, and PDF page range validation. A development server verified HTTP chat history isolation and readiness status with PostgreSQL running and stopped. The dashboard click flow and Android behavior remain to be verified.

@@ -1,5 +1,7 @@
 "use client";
 
+import { importBuilderOutline } from "@/lib/actions/book-builder-actions";
+import { getSessionToken as getBuilderSessionToken } from "@/lib/auth/session-storage";
 import BookMarketplace from "@/components/store/BookMarketplace";
 import ManualBookBuilder from "./ManualBookBuilder";
 import React, { useMemo, useState } from "react";
@@ -112,7 +114,7 @@ export default function AdminWorkspace() {
   const [newBookSubtitle, setNewBookSubtitle] = useState("");
   const [newBookAuthor, setNewBookAuthor] = useState("Skyx Editorial Board");
   const [newBookSubject, setNewBookSubject] = useState("Biology");
-  const [newBookCurriculum, setNewBookCurriculum] = useState(curriculums[0]?.id || "curr-academic");
+  const [newBookCurriculum, setNewBookCurriculum] = useState(curriculums[0]?.id || "");
   const [newBookLang, setNewBookLang] = useState<BookLanguage>("bilingual");
   const [newBookTier, setNewBookTier] = useState<AccessTier>("free");
   const [newBookDesc, setNewBookDesc] = useState("");
@@ -185,7 +187,7 @@ export default function AdminWorkspace() {
     e.preventDefault();
     if (!newBookTitle.trim()) return;
     const palette = ["#4F46E5", "#0EA5E9", "#10B981", "#7C3AED", "#D97706", "#E11D48"];
-    await saveBook({
+    const saved = await saveBook({
       id: `book-${Date.now()}`,
       curriculumId: newBookCurriculum,
       title: newBookTitle.trim(),
@@ -199,6 +201,7 @@ export default function AdminWorkspace() {
       totalTopics: 0,
       isPublished: true,
     });
+    if (!saved) return;
     setNewBookTitle("");
     setNewBookSubtitle("");
     setNewBookDesc("");
@@ -247,7 +250,7 @@ export default function AdminWorkspace() {
     if (!book || splitPreview.length === 0) return;
     const existingCount = topics.filter((t) => t.bookId === book.id).length;
 
-    await saveTopicsBatch(
+    const saved = await saveTopicsBatch(
       book.id,
       splitPreview.map((item, idx) => ({
         id: `topic-${book.id}-${Date.now()}-${idx}`,
@@ -263,9 +266,40 @@ export default function AdminWorkspace() {
         isPublished: true,
       }))
     );
-    setSplitPreview([]);
-    setRawBookText("");
+    if (saved) {
+      setSplitPreview([]);
+      setRawBookText("");
+    }
   };
+
+  const [savingSplitterDraft, setSavingSplitterDraft] = useState(false);
+
+  async function saveSplitterDraft() {
+    const book = books.find(item => item.id === splitterBookId) || books[0];
+    if (!book || !splitPreview.length || savingSplitterDraft) return;
+    setSavingSplitterDraft(true);
+    try {
+      const outline = new Map<string, {key:string; parentKey:string | null; title:string; markdown:string}>();
+      splitPreview.forEach((item, index) => {
+        const chapter = JSON.stringify([item.chapterNumber, item.chapterTitle]);
+        const section = JSON.stringify([chapter, item.sectionTitle]);
+        if (!outline.has(chapter)) outline.set(chapter, {key:chapter,parentKey:null,title:item.chapterTitle || "Chapter",markdown:""});
+        if (!outline.has(section)) outline.set(section, {key:section,parentKey:chapter,title:item.sectionTitle || "Section",markdown:""});
+        const key = "topic-" + index;
+        outline.set(key,{key,parentKey:section,title:item.topicTitle || "Topic",markdown:item.contentMarkdown});
+      });
+      await importBuilderOutline(getBuilderSessionToken(), {
+        title: book.title, subtitle: book.subtitle || "", author: book.author,
+        subject: book.subject, description: book.description, language: book.language,
+        accessTier: "free",
+      }, [...outline.values()]);
+      notify("Builder draft created. Refresh Saved Book Drafts to open it.", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not create the Builder draft.", "error");
+    } finally {
+      setSavingSplitterDraft(false);
+    }
+  }
 
   const handleStudioGenerate = async () => {
     if (!selectedStudioBook || !selectedStudioTopic) return;
@@ -321,7 +355,7 @@ export default function AdminWorkspace() {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_+|_+$/g, "");
-    await saveStudyTabType({
+    const saved = await saveStudyTabType({
       id: `tab-${key}`,
       key,
       label: newTabLabel.trim(),
@@ -330,6 +364,7 @@ export default function AdminWorkspace() {
       isSystem: false,
       isPublished: true,
     });
+    if (!saved) return;
     setNewTabLabel("");
     setNewTabPrompt("");
   };
@@ -389,8 +424,7 @@ export default function AdminWorkspace() {
       difficulty: q.difficulty,
       isPublished: true,
     }));
-    await saveQuestionsBatch(batch);
-    setQDrafts([]);
+    if (await saveQuestionsBatch(batch)) setQDrafts([]);
   };
 
   const handleSaveManualQuestion = async (e: React.FormEvent) => {
@@ -400,7 +434,7 @@ export default function AdminWorkspace() {
     const topic = bookT.find((t) => t.id === qGenTopicId) || bookT[0];
     if (!book || !topic || !manualStem.trim() || !manualOptA.trim() || !manualOptB.trim()) return;
 
-    await saveQuestionsBatch([
+    const saved = await saveQuestionsBatch([
       {
         id: `q-man-${Date.now()}`,
         bookId: book.id,
@@ -419,6 +453,7 @@ export default function AdminWorkspace() {
         isPublished: true,
       },
     ]);
+    if (!saved) return;
     setManualStem("");
     setManualOptA("");
     setManualOptB("");
@@ -1039,6 +1074,10 @@ export default function AdminWorkspace() {
                   >
                     <Save className="w-3.5 h-3.5" />
                     Save All to Library
+                  </button>
+                  <button type="button" onClick={saveSplitterDraft} disabled={savingSplitterDraft}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">
+                    Create Builder Draft
                   </button>
                 </div>
                 <div className="max-h-56 overflow-y-auto space-y-2">

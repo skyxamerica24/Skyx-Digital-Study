@@ -53,3 +53,5 @@ Apply the updated PostgreSQL schema and regenerate the Prisma client before runn
 Set `SKYX_STORE_PAYMENT_INSTRUCTIONS` to the payment directions customers should see. Customers submit a transaction reference, then an administrator independently verifies the received payment and approves or rejects it in **Sales and Payment Review**. Purchase approval adds a lasting license. Subscription approval grants 30 days and adds that time to any remaining period for the same plan. Checkout uses manual review. Automatic payment collection and recurring billing require a payment provider integration.
 
 At the server, Book Library, Reader and catalog search use the learner's own access. My Library includes entitled titles. Notes, highlights and progress stay in the learner's account after subscription access ends.
+
+Use `GET /api/readiness` to check that PostgreSQL and the marketplace schema are available. It returns HTTP 503 when the database check fails. `GET /api/health` is the process health endpoint.

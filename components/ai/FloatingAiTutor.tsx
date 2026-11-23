@@ -30,7 +30,15 @@ import {
   X,
 } from "lucide-react";
 import { arrayBufferToBase64, base64ToInt16Array, downsampleTo16k, float32ToInt16 } from "@/lib/reader-live/pcm";
+import { getSessionToken } from "@/lib/auth/session-storage";
 import { useApp } from "@/components/context/AppContext";
+
+function historyFetch(url: string, init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+  const token = getSessionToken();
+  if (token) headers.set("Authorization", "Bearer " + token);
+  return fetch(url, { ...init, headers });
+}
 
 interface ChatMessage {
   id: string;
@@ -268,7 +276,7 @@ export default function FloatingAiTutor() {
   const fetchVoiceConversations = useCallback(async () => {
     setVoiceHistoryLoading(true);
     try {
-      const res = await fetch(`/api/ai/conversations?channelId=${voiceChannelId}&limit=20`);
+      const res = await historyFetch(`/api/ai/conversations?channelId=${voiceChannelId}&limit=20`);
       const data = await res.json();
       if (res.ok && data.conversations) {
         setVoiceConversations(data.conversations);
@@ -282,7 +290,7 @@ export default function FloatingAiTutor() {
 
   const loadVoiceConversation = useCallback(async (convId: string) => {
     try {
-      const res = await fetch(`/api/ai/conversations/${convId}`);
+      const res = await historyFetch(`/api/ai/conversations/${convId}`);
       const data = await res.json();
       if (res.ok && data.conversation) {
         const conv = data.conversation;
@@ -302,7 +310,7 @@ export default function FloatingAiTutor() {
 
   const deleteVoiceConversation = useCallback(async (convId: string) => {
     try {
-      const res = await fetch("/api/ai/conversations", {
+      const res = await historyFetch("/api/ai/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", conversationId: convId }),
@@ -322,7 +330,7 @@ export default function FloatingAiTutor() {
   const fetchConversations = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const res = await fetch(`/api/ai/conversations?channelId=${chatChannelId}&limit=20`);
+      const res = await historyFetch(`/api/ai/conversations?channelId=${chatChannelId}&limit=20`);
       const data = await res.json();
       if (res.ok && data.conversations) {
         setSavedConversations(data.conversations);
@@ -336,7 +344,7 @@ export default function FloatingAiTutor() {
 
   const loadSavedConversation = useCallback(async (convId: string) => {
     try {
-      const res = await fetch(`/api/ai/conversations/${convId}`);
+      const res = await historyFetch(`/api/ai/conversations/${convId}`);
       const data = await res.json();
       if (res.ok && data.conversation) {
         const conv = data.conversation;
@@ -366,7 +374,7 @@ export default function FloatingAiTutor() {
       const title = firstUserMsg?.text?.slice(0, 60) || "Untitled";
 
       if (!conversationId) {
-        const res = await fetch("/api/ai/conversations", {
+        const res = await historyFetch("/api/ai/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -387,7 +395,7 @@ export default function FloatingAiTutor() {
           const userMsg = messages[i];
           const modelMsg = messages[i + 1];
           if (userMsg && modelMsg && userMsg.role === "user" && modelMsg.role === "model") {
-            await fetch("/api/ai/conversations", {
+            const response = await historyFetch("/api/ai/conversations", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -399,6 +407,7 @@ export default function FloatingAiTutor() {
                 modelUsed: modelMsg.modelUsed,
               }),
             });
+            if (!response.ok) throw new Error("Could not save a conversation message.");
           }
         }
       }
@@ -413,7 +422,7 @@ export default function FloatingAiTutor() {
 
   const deleteConversation = useCallback(async (convId: string) => {
     try {
-      const res = await fetch("/api/ai/conversations", {
+      const res = await historyFetch("/api/ai/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", conversationId: convId }),
@@ -442,7 +451,7 @@ export default function FloatingAiTutor() {
       const firstUserMsg = messages.find((m) => m.role === "user");
       const title = firstUserMsg?.text?.slice(0, 60) || undefined;
 
-      const res = await fetch("/api/ai/conversations", {
+      const res = await historyFetch("/api/ai/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

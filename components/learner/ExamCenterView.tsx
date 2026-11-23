@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -34,6 +34,9 @@ export default function ExamCenterView() {
     notify,
   } = useApp();
 
+  const attemptId = useRef("");
+  const submitting = useRef(false);
+  const [resultStatus, setResultStatus] = useState<"saving" | "failed" | "saved">("saving");
   const [phase, setPhase] = useState<ExamPhase>("builder");
 
   // Builder controls
@@ -97,7 +100,9 @@ export default function ExamCenterView() {
 
   // Finish and grade exam
   const finalizeExam = React.useCallback(async () => {
-    if (activeQuestions.length === 0) return;
+    if (activeQuestions.length === 0 || submitting.current) return;
+    submitting.current = true;
+    setResultStatus("saving");
 
     let correct = 0;
     let wrong = 0;
@@ -118,7 +123,7 @@ export default function ExamCenterView() {
     setLastResult({ correct, wrong, skipped, netScore, accuracy, timeSpent });
     setPhase("results");
 
-    await saveExamAttempt({
+    const saved = await saveExamAttempt({
       bookId: selectedBookId === "all" ? activeQuestions[0]?.bookId || "all" : selectedBookId,
       examTitle: activeExamTitle || "Skyx Timed Mock Exam",
       totalQuestions: activeQuestions.length,
@@ -128,8 +133,10 @@ export default function ExamCenterView() {
       accuracyPercent: accuracy,
       durationSeconds: timeSpent,
       questionIds: activeQuestions.map((q) => q.id),
-    });
-    notify(`Exam submitted! Accuracy: ${accuracy}%`, "success");
+    }, attemptId.current);
+    submitting.current = false;
+    setResultStatus(saved ? "saved" : "failed");
+    if (saved) notify(`Exam submitted! Accuracy: ${accuracy}%`, "success");
   }, [
     activeQuestions,
     answers,
@@ -185,6 +192,7 @@ export default function ExamCenterView() {
     setFlaggedIds({});
     setInitialDurationSeconds(totalSec);
     setSecondsLeft(totalSec);
+    attemptId.current = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, "0")).join("");
     setLastResult(null);
     setPhase("running");
   };
@@ -476,6 +484,7 @@ export default function ExamCenterView() {
               </div>
             </div>
             <button
+              disabled={resultStatus === "saving"}
               onClick={() => setPhase("builder")}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-semibold"
             >
@@ -484,6 +493,13 @@ export default function ExamCenterView() {
             </button>
           </div>
         </div>
+
+        {resultStatus === "saving" && <p role="status">Saving result…</p>}
+        {resultStatus === "failed" && (
+          <button type="button" onClick={finalizeExam} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold">
+            Retry Saving Result
+          </button>
+        )}
 
         {/* Breakdown Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

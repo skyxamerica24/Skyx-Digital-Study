@@ -25,9 +25,13 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { persistBookTopics } from "@/lib/actions/book-actions";
+import { importBuilderOutline } from "@/lib/actions/book-builder-actions";
+import { getSessionToken } from "@/lib/auth/session-storage";
 import { useApp } from "@/components/context/AppContext";
 import {
   convertProjectToSkyxReaderBook,
+  resolveChapterBodyMarkdown,
   exportBookCsv,
   exportChaptersMarkdownZip,
   exportCombinedMarkdown,
@@ -72,7 +76,7 @@ export default function ExportPublishHub({
   project,
   onNotify,
 }: ExportPublishHubProps) {
-  const { curriculums, saveBook, saveTopicsBatch, openBookReader } = useApp();
+  const { curriculums, applyPublishedBook, openBookReader, isAdmin, setActivePanel, setAdminRoute } = useApp();
 
   const [printOptions, setPrintOptions] = useState<PrintExportOptions>({
     paperTheme: "ivory",
@@ -84,7 +88,7 @@ export default function ExportPublishHub({
 
   // Skyx Book Reader publish bridge state
   const [curriculumId, setCurriculumId] = useState<string>(
-    curriculums[0]?.id || "curr-hsc"
+    curriculums[0]?.id || ""
   );
   const [accessTier, setAccessTier] = useState<AccessTier>("free");
   const [coverColor, setCoverColor] = useState<string>(COVER_PRESETS[0].value);
@@ -137,13 +141,13 @@ export default function ExportPublishHub({
     setPublishing(true);
     try {
       const { book, topics } = convertProjectToSkyxReaderBook(project, {
-        curriculumId: curriculumId || curriculums[0]?.id || "curr-hsc",
+        curriculumId: curriculumId || curriculums[0]?.id || "",
         accessTier,
         coverColor,
         isPublished: true,
       });
-      await saveBook(book);
-      await saveTopicsBatch(book.id, topics);
+      const saved = await persistBookTopics(getSessionToken(), book.id, topics, book);
+      applyPublishedBook(saved.book, saved.topics);
       const firstTopicId = topics[0]?.id || "";
       setLastPublishedBook({
         bookId: book.id,
@@ -151,7 +155,7 @@ export default function ExportPublishHub({
         title: book.title,
       });
       onNotify(
-        `Published "${book.title}" (${topics.length} chapters) to Skyx Book Reader!`,
+        `Published "${book.title}" (${topics.length} chapters). Manage its listing in Admin Books.`,
         "success"
       );
       if (openAfter) {
@@ -167,6 +171,31 @@ export default function ExportPublishHub({
       setPublishing(false);
     }
   };
+
+  async function createBuilderDraft() {
+    setPublishing(true);
+    try {
+      const outline = sortedChapters.length ? sortedChapters.map(chapter => ({
+        key: chapter.id, parentKey: chapter.parentId, title: chapter.title,
+        markdown: resolveChapterBodyMarkdown(project, chapter),
+      })) : [{
+        key: "document", parentKey: null, title: project.title,
+        markdown: project.pages.filter(page => page.status !== "skipped").map(page => page.cleanedText).join("\n\n"),
+      }];
+      const { title, author, subtitle, subject, language } = project;
+      await importBuilderOutline(getSessionToken(), {
+        title: title.slice(0,195), author:author.slice(0,135), subtitle:subtitle.slice(0,235),
+        subject:subject.slice(0,135), language, description:"", accessTier:"free",
+      }, outline);
+      onNotify("Builder draft created. Open it from Saved Book Drafts.", "success");
+      setAdminRoute("books");
+      setActivePanel("admin");
+    } catch (error) {
+      onNotify(error instanceof Error ? error.message : "Could not create the Builder draft.", "error");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   const handleCopyVpsSnippet = async () => {
     try {
@@ -500,7 +529,7 @@ export default function ExportPublishHub({
                 onChange={(e) => setAccessTier(e.target.value as AccessTier)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-none focus:border-indigo-400"
               >
-                <option value="free">Free (Open Library)</option>
+                <option value="free">Free</option>
                 <option value="pro">Pro Membership</option>
                 <option value="elite">Elite Membership</option>
               </select>
@@ -535,7 +564,7 @@ export default function ExportPublishHub({
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <button
               type="button"
-              disabled={publishing}
+              disabled={publishing || !isAdmin}
               onClick={() => void handlePublishToReader(true)}
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm cursor-pointer disabled:opacity-50"
             >
@@ -548,7 +577,7 @@ export default function ExportPublishHub({
             </button>
             <button
               type="button"
-              disabled={publishing}
+              disabled={publishing || !isAdmin}
               onClick={() => void handlePublishToReader(false)}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold cursor-pointer disabled:opacity-50"
             >
@@ -556,6 +585,11 @@ export default function ExportPublishHub({
               <span>Save to Library</span>
             </button>
           </div>
+
+          {isAdmin && <button type="button" disabled={publishing} onClick={createBuilderDraft}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold">
+            Create Builder Draft
+          </button>}
 
           {lastPublishedBook && (
             <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs">

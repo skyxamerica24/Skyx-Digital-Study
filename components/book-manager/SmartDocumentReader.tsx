@@ -435,14 +435,25 @@ export default function SmartDocumentReader({
   const goToPage = useCallback(
     (nextPage: number) => {
       if (!activeDoc) return;
-      const clamped = Math.max(1, Math.min(activeDoc.totalPages, Math.trunc(nextPage)));
-      onUpdateDoc(activeDoc.id, { currentPage: clamped });
+      if (!Number.isInteger(nextPage) || nextPage < 1 || nextPage > activeDoc.totalPages) return;
+      onUpdateDoc(activeDoc.id, { currentPage: nextPage });
       if (viewportRef.current) {
         viewportRef.current.scrollTo({ top: 0, left: 0, behavior: "instant" });
       }
     },
     [activeDoc, onUpdateDoc]
   );
+
+  function submitPageInput(raw: string) {
+    const normalized = normalizeBanglaDigits(raw).trim();
+    const page = Number(normalized);
+    if (!/^\d+$/.test(normalized) || page < 1 || page > totalPages) {
+      onNotify(`Enter a page number between 1 and ${totalPages}.`, "error");
+    } else {
+      goToPage(page);
+    }
+    setPageInputDraft(null);
+  }
 
   // Keyboard shortcuts for fluid desktop reading
   useEffect(() => {
@@ -1135,12 +1146,7 @@ export default function SmartDocumentReader({
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                const rawVal = pageInputDraft ?? String(currentPage);
-                const parsed = Number(normalizeBanglaDigits(rawVal));
-                if (!Number.isNaN(parsed) && parsed >= 1) {
-                  goToPage(parsed);
-                }
-                setPageInputDraft(null);
+                if (pageInputDraft !== null) submitPageInput(pageInputDraft);
               }}
               className="flex items-center gap-1 text-xs font-mono tabular-nums"
             >
@@ -1151,13 +1157,7 @@ export default function SmartDocumentReader({
                 onFocus={() => setPageInputDraft(String(currentPage))}
                 onChange={(e) => setPageInputDraft(e.target.value)}
                 onBlur={() => {
-                  if (pageInputDraft !== null) {
-                    const parsed = Number(normalizeBanglaDigits(pageInputDraft));
-                    if (!Number.isNaN(parsed) && parsed >= 1) {
-                      goToPage(parsed);
-                    }
-                    setPageInputDraft(null);
-                  }
+                  if (pageInputDraft !== null) submitPageInput(pageInputDraft);
                 }}
                 aria-label="Page number"
                 className="w-12 text-center py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 font-semibold focus:outline-none focus:bg-white focus:border-indigo-400"

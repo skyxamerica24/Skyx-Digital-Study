@@ -8,6 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ conversation });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load conversation.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message === "Authentication required." ? 401 : message === "Conversation not found." ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

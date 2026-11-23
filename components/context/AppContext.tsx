@@ -1,5 +1,6 @@
 "use client";
 
+import { loadStudyTabs, persistStudyTabType, persistTopicStudyTab } from "@/lib/actions/study-tab-actions";
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   SEED_AUDIT_LOGS,
@@ -70,13 +71,14 @@ import {
   updateBookAction,
   deleteBookAction,
   getBook,
+  persistBookTopics,
   createTopicAction,
   updateTopicAction,
   deleteTopicAction,
 } from "@/lib/actions/book-actions";
 import {
   getAllQuestions,
-  createQuestionAction,
+  persistQuestions,
   deleteQuestionAction,
 } from "@/lib/actions/question-actions";
 import {
@@ -464,7 +466,7 @@ interface AppContextValue {
   addAnnotation: (input: Omit<LearnerAnnotation, "id" | "userId" | "createdAt" | "updatedAt">) => Promise<void>;
   deleteAnnotation: (id: string) => Promise<void>;
   updateTopicProgress: (book: Book, topic: BookTopic, percentComplete: number, isCompleted: boolean) => Promise<void>;
-  saveExamAttempt: (attempt: Omit<ExamAttempt, "id" | "userId" | "status" | "createdAt">) => Promise<void>;
+  saveExamAttempt: (attempt: Omit<ExamAttempt, "id" | "userId" | "status" | "createdAt">, attemptId: string) => Promise<boolean>;
   selectSubscriptionPlan: (plan: SubscriptionPlan) => Promise<void>;
   addFlashcard: (
     input: Omit<Flashcard, "id" | "userId" | "intervalDays" | "easeFactor" | "repetitions" | "nextReviewAt" | "createdAt">
@@ -482,14 +484,14 @@ interface AppContextValue {
   saveSyllabus: (syl: Omit<Syllabus, "createdAt">) => Promise<void>;
   deleteSyllabus: (id: string) => Promise<void>;
   saveImportJob: (job: Omit<ImportJob, "createdAt" | "updatedAt">) => Promise<void>;
-  saveBook: (book: Omit<Book, "createdAt" | "updatedAt">) => Promise<void>;
+  saveBook: (book: Omit<Book, "createdAt" | "updatedAt">) => Promise<boolean>;
   deleteBook: (bookId: string) => Promise<void>;
-  saveTopicsBatch: (bookId: string, newTopics: Omit<BookTopic, "createdAt" | "updatedAt">[]) => Promise<void>;
+  saveTopicsBatch: (bookId: string, newTopics: Omit<BookTopic, "createdAt" | "updatedAt">[]) => Promise<boolean>;
   saveSingleTopic: (topic: Omit<BookTopic, "createdAt" | "updatedAt">) => Promise<void>;
   deleteTopic: (topicId: string) => Promise<void>;
-  saveStudyTabType: (tab: Omit<StudyTabType, "createdAt">) => Promise<void>;
+  saveStudyTabType: (tab: Omit<StudyTabType, "createdAt">) => Promise<boolean>;
   saveTopicStudyTab: (tab: Omit<TopicStudyTab, "updatedAt">) => Promise<void>;
-  saveQuestionsBatch: (qs: Omit<Question, "createdAt">[]) => Promise<void>;
+  saveQuestionsBatch: (qs: Omit<Question, "createdAt">[]) => Promise<boolean>;
   deleteQuestion: (questionId: string) => Promise<void>;
   updateAiModelConfig: (cfg: Omit<AiModelConfig, "updatedAt">) => Promise<boolean>;
   saveCustomAiModel: (model: Omit<CustomAiModel, "createdAt" | "updatedAt">) => Promise<void>;
@@ -659,6 +661,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Load data from Server Actions on mount
   const loadDataFromServer = async (userId?: string, isAdminUser?: boolean) => {
+    const token = getSessionToken();
     try {
       // Load all shared data
       const [
@@ -670,25 +673,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         subscriptionPlansData,
         aiModelConfigsData,
         customAiModelsData,
+        studyData,
       ] = await Promise.all([
         getCurriculums().catch(() => []),
         getSubjects().catch(() => []),
         getSyllabi().catch(() => []),
-        getAllBooks(getSessionToken()).catch(() => []),
-        getAllQuestions(getSessionToken()).catch(() => []),
+        getAllBooks(token).catch(() => []),
+        getAllQuestions(token).catch(() => []),
         getAllSubscriptionPlans().catch(() => []),
         getAiModelConfigs().catch(() => null),
         getCustomAiModels().catch(() => []),
+        loadStudyTabs(token).catch(() => null),
       ]);
       // Load topics for each book
       const topicsData = booksData.flatMap(book => book.topics);
 
+      if (token !== getSessionToken()) return;
       setCurriculums(curriculumsData.map(toCurriculum));
       setSubjects(subjectsData.map(toSubject));
       setSyllabi(syllabiData.map(toSyllabus));
       setBooks(booksData.map(toBook));
       setTopics(topicsData.map(toBookTopic).sort((a, b) => a.orderIndex - b.orderIndex));
       setQuestions(questionsData.map(toQuestion));
+      if (studyData) {
+        const keys = new Set(studyData.types.map(tab => tab.key));
+        setStudyTabTypes([...SEED_STUDY_TAB_TYPES.filter(tab => !keys.has(tab.key)), ...studyData.types.map(toStudyTabType)]);
+        const ids = new Set(topicsData.map(topic => topic.id));
+        setTopicStudyTabs(studyData.tabs.map(toTopicStudyTab).filter(tab => ids.has(tab.topicId)));
+      }
       setSubscriptionPlans(subscriptionPlansData.map(toSubscriptionPlan));
       if (aiModelConfigsData) setAiModelConfigs(aiModelConfigsData);
       setCustomAiModels(customAiModelsData.map(toCustomAiModel));
@@ -702,13 +714,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           flashcardsData,
           subscriptionsData,
         ] = await Promise.all([
-          getAnnotations(getSessionToken()).catch(() => []),
-          getReadingProgressAction(getSessionToken()).catch(() => []),
-          getExamAttempts(userId).catch(() => []),
+          getAnnotations(token).catch(() => []),
+          getReadingProgressAction(token).catch(() => []),
+          getExamAttempts(token).catch(() => []),
           getFlashcards(userId).catch(() => []),
           getSubscriptionRecords(userId).catch(() => []),
         ]);
 
+        if (token !== getSessionToken()) return;
         setAnnotations(annotationsData.map(a => ({ ...a, bookId: a.bookId || '', topicId: a.topicId || '', bookTitle: a.bookTitle || '', topicTitle: a.topicTitle || '', color: a.color || '', quote: a.quote || '', noteText: a.noteText || '', type: a.type as any }) as LearnerAnnotation));
         setReadingProgress(progressData.map(p => ({ ...p, bookId: p.bookId || '', topicId: p.topicId || '', bookTitle: p.bookTitle || '', topicTitle: p.topicTitle || '' }) as ReadingProgress));
         setExamAttempts(examData.map(e => {
@@ -1048,6 +1061,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTopics([]);
     setAnnotations([]);
     setReadingProgress([]);
+    setExamAttempts([]);
+    setFlashcards([]);
+    setSubscriptions([]);
+    setQuestions([]);
+    setTopicStudyTabs([]);
+    setIsTutorOpen(false);
     setUserProfile(DEFAULT_PROFILE);
     setIsCloudSynced(false);
     setActivePanel("learner");
@@ -1058,11 +1077,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshBookAccess = async () => {
     const token = getSessionToken();
-    const [catalog, availableQuestions] = await Promise.all([getAllBooks(token), getAllQuestions(token)]);
+    const [catalog, availableQuestions, studyData] = await Promise.all([getAllBooks(token), getAllQuestions(token), loadStudyTabs(token)]);
     if (token !== getSessionToken()) return;
     setBooks(catalog.map(toBook));
     setTopics(catalog.flatMap(book => book.topics.map(toBookTopic)));
     setQuestions(availableQuestions.map(toQuestion));
+    setTopicStudyTabs(studyData.tabs.map(toTopicStudyTab));
   };
 
   const openBookReader = async (bookId: string, topicId?: string, tabKey: string = "reading") => {
@@ -1216,39 +1236,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const saveExamAttempt = async (
-    attempt: Omit<ExamAttempt, "id" | "userId" | "status" | "createdAt">
+    attempt: Omit<ExamAttempt, "id" | "userId" | "status" | "createdAt">,
+    attemptId: string
   ) => {
-    const uid = user?.uid || DEFAULT_PROFILE.uid;
-    const id = sanitizeId(`exam-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-    const record: ExamAttempt = {
-      ...attempt,
-      id,
-      userId: uid,
-      status: "completed",
-      examTitle: attempt.examTitle.slice(0, 190),
-      questionIds: attempt.questionIds.length > 0 ? attempt.questionIds.slice(0, 200) : ["q-1"],
-    };
-
-    if (user) {
-      try {
-        await createExamAttempt({
-          userId: uid,
-          bookId: attempt.bookId,
-          examTitle: record.examTitle,
-          totalQuestions: attempt.totalQuestions,
-          correctCount: attempt.correctCount,
-          wrongCount: attempt.wrongCount,
-          skippedCount: attempt.skippedCount,
-          accuracyPercent: attempt.accuracyPercent,
-          durationSeconds: attempt.durationSeconds,
-          status: "completed",
-          questionIds: JSON.stringify(record.questionIds),
-        });
-      } catch (err) {
-        console.error("Failed to save exam attempt:", err);
-      }
+    try {
+      const saved = await createExamAttempt(getSessionToken(), {
+        ...attempt, attemptId, examTitle: attempt.examTitle.slice(0, 190),
+      });
+      const record: ExamAttempt = {
+        ...attempt, id: saved.id, userId: saved.userId, status: "completed",
+        createdAt: saved.createdAt, examTitle: saved.examTitle ?? attempt.examTitle,
+      };
+      setExamAttempts(prev => [record, ...prev.filter(entry => entry.id !== record.id)]);
+      return true;
+    } catch {
+      notify("Could not save the exam result. Try again.", "error");
+      return false;
     }
-    setExamAttempts((prev) => [record, ...prev]);
   };
 
   const selectSubscriptionPlan = async (plan: SubscriptionPlan) => {
@@ -1590,10 +1594,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (existing) {
           await updateBookAction(getSessionToken(), id, normalized);
         } else {
-          await createBookAction(getSessionToken(), normalized);
+          const saved = await createBookAction(getSessionToken(), normalized);
+          if (saved.error) throw new Error(saved.error);
         }
       } catch (err) {
         console.error("Failed to save book:", err);
+        notify("Could not save the book.", "error");
+        return false;
       }
     }
     setBooks((prev) => {
@@ -1602,6 +1609,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     await recordAuditLog("BOOK_SAVED", "book", id, `Saved book "${normalized.title}" (${normalized.accessTier}).`);
     notify(`Book "${normalized.title}" saved.`, "success");
+    return true;
   };
 
   const deleteBook = async (bookId: string) => {
@@ -1610,6 +1618,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await deleteBookAction(getSessionToken(), bookId);
       } catch (err) {
         console.error("Failed to delete book:", err);
+        notify("Could not delete the book.", "error");
+        return;
       }
     }
     setBooks((prev) => prev.filter((b) => b.id !== bookId));
@@ -1631,17 +1641,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       searchTokens: `${t.chapterTitle} ${t.sectionTitle} ${t.topicTitle}`.toLowerCase().slice(0, 1900),
     }));
 
-    if (user && isAdmin) {
-      try {
-        for (const t of normalized) {
-          await createTopicAction(getSessionToken(), t);
-        }
-      } catch (err) {
-        console.error("Failed to save topics batch:", err);
-      }
+    try {
+      const { book, topics: saved } = await persistBookTopics(getSessionToken(), bookId, normalized);
+      const ids = new Set(saved.map(topic => topic.id));
+      setBooks(items => items.map(item => item.id === bookId ? toBook(book) : item));
+      setTopics(items => [...items.filter(item => !ids.has(item.id)), ...saved.map(toBookTopic)]);
+      notify(`Saved ${saved.length} structured topics to the library.`, "success");
+      return true;
+    } catch {
+      notify("Could not save topics. Your draft is still available.", "error");
+      return false;
     }
-    setTopics((prev) => [...prev, ...normalized]);
-    notify(`Saved ${normalized.length} structured topics to library.`, "success");
   };
 
   const saveSingleTopic = async (topic: Omit<BookTopic, "createdAt" | "updatedAt">) => {
@@ -1662,10 +1672,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (existing) {
           await updateTopicAction(getSessionToken(), id, normalized);
         } else {
-          await createTopicAction(getSessionToken(), normalized);
+          const saved = await createTopicAction(getSessionToken(), normalized);
+          if (saved.error) throw new Error(saved.error);
         }
       } catch (err) {
         console.error("Failed to save topic:", err);
+        notify("Could not save the topic.", "error");
+        return;
       }
     }
     setTopics((prev) => {
@@ -1686,6 +1699,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await deleteTopicAction(getSessionToken(), topicId);
       } catch (err) {
         console.error("Failed to delete topic:", err);
+        notify("Could not delete the topic.", "error");
+        return;
       }
     }
     setTopics((prev) => prev.filter((t) => t.id !== topicId));
@@ -1701,8 +1716,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       label: tab.label.slice(0, 46),
       promptTemplate: tab.promptTemplate.slice(0, 1950),
     };
-    setStudyTabTypes((prev) => [...prev.filter((t) => t.id !== id), normalized]);
-    notify(`Study tab "${normalized.label}" added.`, "success");
+    try {
+      const saved = toStudyTabType(await persistStudyTabType(getSessionToken(), normalized));
+      setStudyTabTypes(prev => [...prev.filter(tab => tab.key !== saved.key), saved]);
+      notify(`Study tab "${saved.label}" saved.`, "success");
+      return true;
+    } catch {
+      notify("Could not save the study tab.", "error");
+      return false;
+    }
   };
 
   const saveTopicStudyTab = async (tab: Omit<TopicStudyTab, "updatedAt">) => {
@@ -1712,8 +1734,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id,
       contentMarkdown: tab.contentMarkdown.slice(0, 39000),
     };
-    setTopicStudyTabs((prev) => [...prev.filter((t) => t.id !== id), normalized]);
-    notify("Study tab content published to learners.", "success");
+    try {
+      const saved = toTopicStudyTab(await persistTopicStudyTab(getSessionToken(), normalized));
+      setTopicStudyTabs(prev => [...prev.filter(tab => tab.id !== saved.id), saved]);
+      notify("Study tab content published to learners.", "success");
+    } catch {
+      notify("Could not publish the study tab.", "error");
+    }
   };
 
   const saveQuestionsBatch = async (qs: Omit<Question, "createdAt">[]) => {
@@ -1725,18 +1752,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       chapterTitle: q.chapterTitle.slice(0, 195),
     }));
 
-    if (user && isAdmin) {
-      try {
-        for (const q of normalized) {
-          const optionsStr = Array.isArray(q.options) ? JSON.stringify(q.options) : q.options;
-          await createQuestionAction(getSessionToken(), { ...q, options: optionsStr });
-        }
-      } catch (err) {
-        console.error("Failed to save questions batch:", err);
+    try {
+      if (!isAdmin) {
+        // Learner-generated practice questions are session-scoped.
+        setQuestions(prev => [...normalized, ...prev]);
+        notify("Practice questions added for this session.", "success");
+        return true;
       }
+      const saved = await persistQuestions(getSessionToken(), normalized.map(q => ({ ...q, options: JSON.stringify(q.options) })));
+      const ids = new Set(saved.map(question => question.id));
+      setQuestions(prev => [...saved.map(toQuestion), ...prev.filter(question => !ids.has(question.id))]);
+      notify(`Saved ${saved.length} questions to the Question Bank.`, "success");
+      return true;
+    } catch {
+      notify("Could not save questions. Your draft is still available.", "error");
+      return false;
     }
-    setQuestions((prev) => [...normalized, ...prev]);
-    notify(`Added ${normalized.length} questions to Question Bank.`, "success");
   };
 
   const deleteQuestion = async (questionId: string) => {
@@ -1745,6 +1776,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await deleteQuestionAction(getSessionToken(), questionId);
       } catch (err) {
         console.error("Failed to delete question:", err);
+        notify("Could not delete the question.", "error");
+        return;
       }
     }
     setQuestions((prev) => prev.filter((q) => q.id !== questionId));

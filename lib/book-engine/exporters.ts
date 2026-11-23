@@ -88,7 +88,7 @@ function getSortedChapters(project: SkyxBookProject): BookChapterNode[] {
   return [...project.chapters].sort((a, b) => a.orderIndex - b.orderIndex);
 }
 
-function resolveChapterBodyMarkdown(
+export function resolveChapterBodyMarkdown(
   project: SkyxBookProject,
   chapter: BookChapterNode
 ): string {

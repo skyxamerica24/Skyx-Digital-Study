@@ -1,8 +1,9 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { prisma } from "../db";
 import { getCurrentUser } from "../db/user";
-import { bookDraftSchema, orderBookNodes, type BookDraft } from "../book-builder";
+import { bookDraftSchema, nodeKinds, orderBookNodes, type BookDraft } from "../book-builder";
 
 async function requireAdmin(token: string | null) {
   if ((await getCurrentUser(token))?.role !== "admin") throw new Error("Administrator access is required.");
@@ -66,4 +67,20 @@ export async function saveBookDraft(token: string | null, id: string | null, rev
     }
     return { ...draft, catalog: { book, topics } };
   }, { timeout: 30000 });
+}
+
+export async function importBuilderOutline(token: string | null, metadata: Omit<BookDraft, "nodes">,
+  outline: { key: string; parentKey: string | null; title: string; markdown: string }[]) {
+  await requireAdmin(token);
+  const ids = new Map(outline.map(item => [item.key, randomUUID()]));
+  if (ids.size !== outline.length) throw new Error("The outline contains duplicate sections.");
+  const nodes = outline.map(item => {
+    const parentId = item.parentKey ? ids.get(item.parentKey) : null;
+    if (parentId === undefined) throw new Error("An outline parent is missing.");
+    return { id: ids.get(item.key)!, parentId, title: item.title.trim().slice(0, 195),
+      kind: parentId ? "topic" as const : "chapter" as const, markdown: item.markdown, visible: true };
+  });
+  const ordered = orderBookNodes(nodes);
+  return saveBookDraft(token, null, 0, {...metadata, nodes:ordered.map(({node,depth}) =>
+    ({...node,kind:nodeKinds[Math.min(depth,nodeKinds.length-1)]})) });
 }
