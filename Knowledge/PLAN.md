@@ -42,3 +42,14 @@ Book Manager-এর ফাইল তালিকা, ব্যাচ আপল�
 5. Verify four levels, draft reload, hidden sections, revision conflicts and invalid trees in PostgreSQL. Follow with browser verification of the full workflow.
 
 Steps 1–4 are implemented. The PostgreSQL and TypeScript checks passed. Browser verification remains open. PDF outline import, assistant commands and historical topic migration remain follow-up work.
+
+## Book Store and learner access
+
+- Add a store listing for each book with a free claim option, a one-time purchase price, plan inclusion, or a combination of purchase and plan access. Keep a draft unpublished until the administrator chooses to list it.
+- Keep the original book and its published contents in the catalog. Store each learner's access separately. A free claim or confirmed one-time purchase adds the book to My Library. An active subscription grants access to the books included in that plan until the entitlement expires.
+- Apply the same server-side access check to the Reader, full-text Search and AI content retrieval. Store listings can display title, author, cover and an approved preview before access is granted.
+- Record payment amounts in integer minor units and keep orders pending until payment is confirmed on the server. Process duplicate confirmations once. Connect a payment provider after the store owner selects it.
+- Keep annotations, highlights and reading progress per signed-in learner. A subscription expiry should retain those records so the learner can resume after renewing or purchasing the book.
+- Use English for all dashboard labels and status messages.
+
+Acceptance checks cover free claims, confirmed purchases, plan access and expiration, concurrent payment confirmations, account isolation, and attempted access to book content without an entitlement.
