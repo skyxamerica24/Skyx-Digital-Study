@@ -55,3 +55,11 @@ Set `SKYX_STORE_PAYMENT_INSTRUCTIONS` to the payment directions customers should
 At the server, Book Library, Reader and catalog search use the learner's own access. My Library includes entitled titles. Notes, highlights and progress stay in the learner's account after subscription access ends.
 
 Use `GET /api/readiness` to check that PostgreSQL and the marketplace schema are available. It returns HTTP 503 when the database check fails. `GET /api/health` is the process health endpoint.
+
+### Password recovery
+
+Set `APP_URL` to the public HTTPS app origin. Set `SKYX_RESET_MAIL_WEBHOOK` to an HTTPS mail relay under your control and `SKYX_RESET_MAIL_KEY` to the relay's bearer secret. The relay accepts a JSON POST with `to`, `subject` and `text`, sends an email, and replies with a successful HTTP status. The reset link expires in 30 minutes and can be used once. Configure these settings and apply the database schema before enabling recovery on a live installation.
+
+### Existing catalog books
+
+In **Admin → Book Builder**, select a legacy catalog book and choose **Migrate Legacy Topics**. Review the converted hierarchy, then use **Sync & Publish**. Migrated reading sections keep their original topic IDs so references from notes, progress, questions and study tabs remain valid. Books authored in **Build Manually** have their own revisioned drafts.

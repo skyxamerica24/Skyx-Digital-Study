@@ -70,7 +70,7 @@ export default function AuthPage() {
       setSubmitting(true);
       try {
         await sendPasswordReset(trimmedEmail);
-        setSuccessMessage(`Reset link sent to ${trimmedEmail}. Please check your inbox.`);
+        setSuccessMessage("If an account exists for this address, check your inbox for a reset link.");
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : "Password reset failed. Please try again.");
       } finally {

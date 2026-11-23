@@ -63,3 +63,9 @@ Acceptance checks cover free claims, confirmed purchases, plan access and expira
 - AI conversation history uses the same signed-in session as the dashboard. The readiness endpoint checks PostgreSQL.
 - PostgreSQL and HTTP verification passed for publication rollback, repeated publish and exam submission, study-tab access, chat isolation and database outage reporting.
 - Remaining work includes browser verification on Android, migration of older catalog books into Builder drafts with topic links preserved, password recovery email delivery, live AI model and voice command verification, payment gateway integration, and release to a configured host.
+
+## GitHub integration checkpoint
+
+Merged the existing GitHub Book Builder with the marketplace and publishing updates. Existing catalog books can be migrated per title without changing their topic IDs. Password recovery has a one-time token flow and a configurable HTTPS mail relay. Local PostgreSQL checks covered topic ID preservation, repeated publication, hidden rows, account scope, mocked mail, request cooldown, and concurrent reset token redemption.
+
+Live payment collection and deployment require the merchant gateway and hosting configuration. Live mail delivery and AI voice checks require configured service credentials. Android browser workflow verification remains open.

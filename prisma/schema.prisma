@@ -20,6 +20,7 @@ model User {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
+  passwordReset         PasswordReset?
   flashcards            Flashcard[]
   annotations           LearnerAnnotation[]
   readingProgress       ReadingProgress[]
@@ -103,6 +104,10 @@ model Book {
   accessTier    String    @default("free") // free | premium | admin
   coverColor    String?
   description   String?
+  publisher     String?
+  edition       String?
+  publishYear   Int?
+  isbn          String?
   totalTopics   Int       @default(0)
   isPublished   Boolean   @default(false)
   createdAt     DateTime  @default(now())
@@ -112,6 +117,7 @@ model Book {
   listing       BookListing?
   licenses      BookLicense[]
   topics        BookTopic[]
+  nodes         BookNode[]
   studyTabs     TopicStudyTab[]
   questions     Question[]
   flashcards    Flashcard[]
@@ -139,6 +145,7 @@ model BookTopic {
   readingMinutes  Int       @default(5)
   model3dKey      String?
   searchTokens    String?
+  sourceNodeId    String?
   isPublished     Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -147,6 +154,31 @@ model BookTopic {
 
   @@index([bookId])
   @@index([isPublished])
+  @@index([orderIndex])
+}
+
+// Manual Book Builder tree: Book > Chapter > Topic > Subtopic > Point, unlimited depth.
+// A node may hold its own content AND children (e.g. a Topic intro above its Subtopics).
+model BookNode {
+  id              String    @id @default(uuid())
+  bookId          String
+  parentId        String?
+  kind            String    @default("topic") // chapter | topic | subtopic | point (label only; depth is unlimited)
+  title           String
+  orderIndex      Int       @default(0)
+  contentMarkdown String?
+  model3dKey      String?
+  diagramId       String?
+  isPublished     Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  book            Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  parent          BookNode? @relation("BookNodeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children        BookNode[] @relation("BookNodeTree")
+
+  @@index([bookId])
+  @@index([parentId])
   @@index([orderIndex])
 }
 
@@ -576,4 +608,12 @@ model StoreOrder {
 
   @@index([userId, status])
   @@index([userId, planId, expiresAt])
+}
+
+model PasswordReset {
+  userId    String   @id
+  digest    String   @unique
+  issuedAt  DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

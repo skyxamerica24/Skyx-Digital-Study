@@ -106,13 +106,6 @@ export async function registerAction(data: { email: string; password: string; di
 }
 
 /**
- * Reset password for a user
- */
-export async function resetPasswordAction() {
-  return { error: 'Password recovery is currently unavailable.' }
-}
-
-/**
  * Logout a user (client-side token removal)
  */
 export async function logoutAction() {

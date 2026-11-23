@@ -47,7 +47,7 @@ import type {
 } from "@/lib/types";
 
 // Server Actions imports
-import { loginAction, registerAction, resetPasswordAction } from "@/lib/auth/server-actions";
+import { loginAction, registerAction } from "@/lib/auth/server-actions";
 import { getCurrentUser } from "@/lib/db/user";
 import { GENERAL_AI_TOOLS } from "@/lib/ai-tool-config";
 import { getSessionToken, setSessionToken, removeSessionToken } from "@/lib/auth/session-storage";
@@ -1049,9 +1049,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const sendPasswordReset = async () => {
-    const result = await resetPasswordAction();
-    throw new Error(result.error);
+  const sendPasswordReset = async (email: string) => {
+    const res = await fetch("/api/auth/reset-password", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || "Password recovery is unavailable.");
   };
 
   const signOut = async () => {
