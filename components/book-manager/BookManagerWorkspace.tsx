@@ -224,6 +224,7 @@ export default function BookManagerWorkspace() {
   // Extract Studio State (5-Tab Pipeline)
   const [project, setProject] = useState<SkyxBookProject | null>(null);
   const [activeTab, setActiveTab] = useState<StudioTab>("ingest");
+  const [forceOcr, setForceOcr] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [savedPdfs, setSavedPdfs] = useState<{ id: string; fileName: string }[]>([]);
   const [archiveMessage, setArchiveMessage] = useState("");
@@ -448,6 +449,7 @@ export default function BookManagerWorkspace() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      if (forceOcr) formData.append("ocr", "force");
 
       const res = await fetch("/api/book-engine/extract", {
         method: "POST",
@@ -944,6 +946,9 @@ export default function BookManagerWorkspace() {
                   </button>
                 </div>
 
+                <label className="mt-3 block text-sm">
+                  <input type="checkbox" checked={forceOcr} onChange={e => setForceOcr(e.target.checked)} /> বাংলা লেখা বিকৃত হলে PDF-এর সব পৃষ্ঠায় OCR চালান
+                </label>
                 <button type="button" disabled={extracting} className="mt-3 text-sm text-indigo-700 underline" onClick={() => loadArchive()}>
                   Open saved PDF imports
                 </button>
@@ -1313,9 +1318,18 @@ export default function BookManagerWorkspace() {
                                 {selectedPage.wordCount} words ·{" "}
                                 {selectedPage.charCount} chars ·{" "}
                                 {selectedPage.status}
+                                {selectedPage.layout && <> · {selectedPage.layout.source} · {selectedPage.layout.kind} · {selectedPage.layout.rows.length} rows × {selectedPage.layout.columns} columns</>}
                               </p>
                             </div>
 
+                            {selectedPage.layout?.kind === "table" && (
+                              <details className="w-full overflow-x-auto text-sm">
+                                <summary>শনাক্ত করা সারি ও কলাম দেখুন</summary>
+                                <table className="mt-2 border-collapse"><tbody>{selectedPage.layout.rows.map((row, i) => (
+                                  <tr key={i}>{row.map((cell, j) => <td key={j} className="border px-2 py-1">{cell}</td>)}</tr>
+                                ))}</tbody></table>
+                              </details>
+                            )}
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200">
                                 <button
@@ -1402,7 +1416,7 @@ export default function BookManagerWorkspace() {
                               placeholder="Extracted page text..."
                             />
                           ) : (
-                            <pre className="w-full max-h-[460px] overflow-auto rounded-xl border border-slate-200 bg-slate-950 text-slate-200 p-4 text-xs leading-relaxed whitespace-pre-wrap font-mono">
+                            <pre className="w-full max-h-[460px] overflow-auto rounded-xl border border-slate-200 bg-slate-950 text-slate-200 p-4 text-xs leading-relaxed whitespace-pre-wrap font-sans">
                               {selectedPage.rawText ||
                                 "(No raw text extracted for this page)"}
                             </pre>

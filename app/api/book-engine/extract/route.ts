@@ -73,13 +73,14 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await entry.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const project = await extractDocumentBuffer(buffer, safeFileName);
+    const project = await extractDocumentBuffer(buffer, safeFileName, formData.get("ocr") === "force");
 
     if (ownerId) {
       try {
-        const saved = await savePdfImport(ownerId, project, buffer);
+        const saved = await savePdfImport(ownerId, project, buffer, formData.get("ocr") === "force");
         if (!saved) throw new Error("Import missing");
-        return NextResponse.json({ project: saved, archived: true, warnings: saved.extraction.warnings });
+        const warnings = Array.from(new Set([...saved.extraction.warnings, ...project.extraction.warnings]));
+        return NextResponse.json({ project: { ...saved, extraction: { ...saved.extraction, warnings } }, archived: true, warnings });
       } catch (error) {
         console.error("PDF archive write failed", error);
         return NextResponse.json({ error: "Could not save the PDF and extracted pages. Retry the upload." }, { status: 503 });

@@ -23,7 +23,7 @@ export async function readPdfImport(ownerId: string, id: string) {
   };
 }
 
-export async function savePdfImport(ownerId: string, project: SkyxBookProject, bytes: Buffer) {
+export async function savePdfImport(ownerId: string, project: SkyxBookProject, bytes: Buffer, forceOcr = false) {
   const base = process.env.SKYX_VPS_STORAGE_DIR?.trim();
   if (!base) throw new Error("Missing SKYX_VPS_STORAGE_DIR");
   const { sha256, fileName } = project.extraction;
@@ -49,7 +49,19 @@ export async function savePdfImport(ownerId: string, project: SkyxBookProject, b
     const row = await tx.pdfImport.findUniqueOrThrow({
       where: { ownerId_sha256: { ownerId, sha256 } }, select: { id: true },
     });
-    if (inserted.count) {
+    // Conditional update locks the import before replacing its page set.
+    // Preserve the prior extraction if an OCR dependency failed this time.
+    const canRefresh = !project.extraction.warnings.some(w => w.includes("OCR unavailable") || w.includes("OCR found no"));
+    const updated = !inserted.count && canRefresh && await tx.pdfImport.updateMany({
+      where: {
+        id: row.id,
+        ...(forceOcr || pages.some(p => p.layout?.source === "ocr") ? {} :
+          { NOT: { metadata: { path: ["extraction", "engineUsed"], equals: project.extraction.engineUsed } } }),
+      },
+      data: { metadata: JSON.parse(JSON.stringify(metadata)) },
+    });
+    if (updated && updated.count) await tx.pdfImportPage.deleteMany({where: {importId: row.id}});
+    if (inserted.count || (updated && updated.count)) {
       for (let start = 0; start < pages.length; start += 100) {
         await tx.pdfImportPage.createMany({
           data: pages.slice(start, start + 100).map(({ pageNumber, rawText, cleanedText, ...details }) => ({

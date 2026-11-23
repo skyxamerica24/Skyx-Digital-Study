@@ -17,6 +17,7 @@ export interface BookPageRecord {
   id: string;
   pageNumber: number;
   label?: string;
+  layout?: { kind: "text" | "columns" | "table"; rows: string[][]; columns: number; source: "digital" | "ocr" };
   rawText: string;
   cleanedText: string;
   wordCount: number;
@@ -84,6 +85,7 @@ export const bookPageSchema = z.object({
   id: z.string().min(1).max(120),
   pageNumber: z.number().int().min(1).max(20000),
   label: z.string().max(200).optional(),
+  layout: z.object({ kind: z.enum(["text","columns","table"]), rows: z.array(z.array(z.string())), columns: z.number().int().nonnegative(), source: z.enum(["digital","ocr"]) }).optional(),
   rawText: z.string().max(400000),
   cleanedText: z.string().max(400000),
   wordCount: z.number().int().min(0),

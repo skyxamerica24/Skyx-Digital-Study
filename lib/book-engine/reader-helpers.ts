@@ -1,3 +1,4 @@
+import { pdfLayout, pdfTextBoxes } from "./pdf-layout";
 import type {
   BookPageRecord,
   BookSourceFormat,
@@ -97,76 +98,8 @@ export function parseManualPageRange(
   return Array.from(result).sort((a, b) => a - b);
 }
 
-interface PdfTextItemLike {
-  str?: string;
-  hasEOL?: boolean;
-  transform?: number[];
-}
-
-/**
- * Reconstructs clean, readable lines & paragraphs from PDF.js TextContent items
- * with Unicode NFC normalization for Bangla + English textbooks.
- */
-export function extractStructuredTextFromPdfItems(
-  items: unknown[]
-): string {
-  const lines: string[] = [];
-  let currentLine = "";
-  let lastY: number | null = null;
-
-  for (const rawItem of items) {
-    if (!rawItem || typeof rawItem !== "object") continue;
-    const item = rawItem as PdfTextItemLike;
-    if (typeof item.str !== "string") continue;
-
-    const str = item.str;
-    const y =
-      Array.isArray(item.transform) && typeof item.transform[5] === "number"
-        ? item.transform[5]
-        : null;
-
-    if (lastY !== null && y !== null && Math.abs(y - lastY) > 4.5) {
-      if (currentLine.trim()) {
-        lines.push(currentLine.trim());
-      }
-      // Larger vertical gap indicates a paragraph break
-      if (Math.abs(y - lastY) > 18 && lines.length > 0 && lines[lines.length - 1] !== "") {
-        lines.push("");
-      }
-      currentLine = str;
-    } else {
-      if (
-        currentLine &&
-        str &&
-        !currentLine.endsWith(" ") &&
-        !str.startsWith(" ")
-      ) {
-        currentLine += " ";
-      }
-      currentLine += str;
-    }
-
-    if (item.hasEOL) {
-      if (currentLine.trim()) {
-        lines.push(currentLine.trim());
-      }
-      currentLine = "";
-      lastY = null;
-    } else if (y !== null) {
-      lastY = y;
-    }
-  }
-
-  if (currentLine.trim()) {
-    lines.push(currentLine.trim());
-  }
-
-  return lines
-    .join("\n")
-    .normalize("NFC")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+export function extractStructuredTextFromPdfItems(items: unknown[], transform?: number[]): string {
+  return pdfLayout(pdfTextBoxes(items, transform)).text;
 }
 
 /**

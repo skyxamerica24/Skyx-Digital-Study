@@ -4,7 +4,10 @@ import { XMLParser } from "fast-xml-parser";
 import mammoth from "mammoth";
 import Papa from "papaparse";
 import TurndownService from "turndown";
-import { extractText, getDocumentProxy, getMeta } from "unpdf";
+import { rm } from "node:fs/promises";
+import { pdfLayout, pdfTextBoxes } from "./pdf-layout";
+import { createOcrInput, recognizePage } from "./pdf-ocr";
+import { getDocumentProxy, getMeta, getResolvedPDFJS } from "unpdf";
 import {
   skyxBookProjectSchema,
   type BookChapterNode,
@@ -264,7 +267,8 @@ function autoDetectChaptersFromPages(pages: BookPageRecord[]): BookChapterNode[]
 async function extractPdf(
   buffer: Buffer,
   fileName: string,
-  sha256: string
+  sha256: string,
+  forceOcr: boolean
 ): Promise<SkyxBookProject> {
   if (!isPdfMagic(buffer)) {
     throw new Error("Invalid PDF file header. Please upload a valid PDF document.");
@@ -272,8 +276,40 @@ async function extractPdf(
 
   const warnings: string[] = [];
   const pdf = await getDocumentProxy(new Uint8Array(buffer));
-  const { totalPages, text } = await extractText(pdf, { mergePages: false });
-  const pageTexts = Array.isArray(text) ? text : [String(text || "")];
+  const totalPages = pdf.numPages;
+  const { OPS } = await getResolvedPDFJS();
+  const pages: BookPageRecord[] = [];
+  let dir: string | undefined;
+  try {
+    for (let number = 1; number <= totalPages; number++) {
+      const page = await pdf.getPage(number);
+      const content = await page.getTextContent({disableNormalization: true});
+      let layout = pdfLayout(pdfTextBoxes(content.items, page.getViewport({scale:1}).transform));
+      let source: "digital" | "ocr" = "digital";
+      const damagedText = /[\u0080-\u009f\uFFFD\uE000-\uF8FF]/u.test(layout.text) ||
+        /(?:^|\s)[িেৈ][ ]+[অ-হ]/u.test(layout.text) ||
+        /[ঀ-৿][\u00c0-\u024f]|[\u00c0-\u024f][ঀ-৿]/u.test(layout.text);
+      const shortImagePage = layout.text.length > 0 && layout.text.length < 35 &&
+        (await page.getOperatorList()).fnArray.some(op => op === OPS.paintImageXObject || op === OPS.paintInlineImageXObject);
+      if (forceOcr || !layout.text || damagedText || shortImagePage) {
+        try {
+          dir ??= await createOcrInput(buffer);
+          const scanned = pdfLayout(await recognizePage(dir, number));
+          if (scanned.text) { layout = scanned; source = "ocr"; }
+          else warnings.push(`Page ${number}: OCR found no readable words.`);
+        } catch {
+          warnings.push(`Page ${number}: OCR unavailable or failed. Check Poppler, Tesseract and ben+eng language data. Available digital text was retained.`);
+        }
+      }
+      const [record] = buildPagesFromTexts([layout.text]);
+      record.pageNumber = number;
+      record.layout = {kind:layout.kind,columns:layout.columns,rows:layout.rows,source};
+      pages.push(record);
+      page.cleanup();
+    }
+  } finally {
+    if (dir) await rm(dir,{recursive:true,force:true});
+  }
 
   let metaTitle = "";
   let metaAuthor = "";
@@ -304,7 +340,7 @@ async function extractPdf(
     // Outline optional
   }
 
-  const pages = buildPagesFromTexts(pageTexts);
+  await pdf.cleanup();
   const scannedCount = pages.filter((p) => p.isLikelyScanned).length;
   if (scannedCount > 0) {
     warnings.push(
@@ -359,7 +395,7 @@ async function extractPdf(
       format: "pdf",
       fileSizeBytes: buffer.length,
       sha256,
-      engineUsed: "unpdf (PDF.js Server Engine)",
+      engineUsed: "PDF.js layout + Bengali/English OCR",
       extractedAt: now,
       totalPages: totalPages || pages.length,
       totalWords,
@@ -797,7 +833,8 @@ function extractSkyxBookJson(buffer: Buffer): SkyxBookProject {
 
 export async function extractDocumentBuffer(
   buffer: Buffer,
-  fileName: string
+  fileName: string,
+  forceOcr = false
 ): Promise<SkyxBookProject> {
   const ext = getExtension(fileName);
   if (!isSupportedExtension(ext)) {
@@ -810,7 +847,7 @@ export async function extractDocumentBuffer(
 
   switch (ext as BookSourceFormat | "markdown" | "json") {
     case "pdf":
-      return extractPdf(buffer, fileName, sha256);
+      return extractPdf(buffer, fileName, sha256, forceOcr);
     case "docx":
       return extractDocx(buffer, fileName, sha256);
     case "epub":

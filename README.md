@@ -24,3 +24,16 @@ If the database and administrator already exist, start with `npm run dev`. Open 
 <!--
 Work on the user's current request. Planning notes, snapshots, and checklists are optional references. They do not set the scope, order, or completion criteria for a task.
 -->
+
+## Bengali PDF extraction
+
+Extract Studio uses positioned PDF text, with server-side Bengali and English OCR for image-only pages and suspected broken character maps. For visually correct pages that extract as nonsense, select the Bengali OCR checkbox before uploading the PDF. The page inspector shows the extraction method and detected layout. Table details show the original detected cell text. Column and table classification is heuristic.
+
+On Debian or Ubuntu, install the OCR runtime on the app server:
+
+```sh
+apt-get install poppler-utils tesseract-ocr tesseract-ocr-ben tesseract-ocr-eng
+tesseract --list-langs
+```
+
+The language list should include both ben and eng. Alternative installations can set TESSDATA_PREFIX to a directory containing both models. Four Bengali reader font families ship under public/fonts with their respective licenses. Smart Reader's manual clip selection uses the digital layout extractor. Use Extract Studio for OCR.

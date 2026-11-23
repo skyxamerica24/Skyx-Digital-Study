@@ -512,7 +512,7 @@ export default function SmartDocumentReader({
         for (const pNum of pageNumbers) {
           const page = await pdfDoc.getPage(pNum);
           const content = await page.getTextContent();
-          const text = extractStructuredTextFromPdfItems(content.items);
+          const text = extractStructuredTextFromPdfItems(content.items, page.getViewport({ scale: 1 }).transform);
           totalWordsExtracted += countWordsQuick(text);
           if (pageNumbers.length > 1) {
             parts.push(`## Page ${pNum}\n\n${text || "(No selectable text on this page)"}`);
