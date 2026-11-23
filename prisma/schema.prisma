@@ -126,6 +126,8 @@ model Book {
 model BookTopic {
   id              String    @id @default(uuid())
   bookId          String
+  builderParentId String?
+  builderPath     String?
   chapterNumber   Int       @default(1)
   chapterTitle    String?
   sectionTitle    String?
@@ -523,4 +525,12 @@ model BookEdition {
 
   @@unique([ownerId, digest])
   @@index([ownerId, createdAt])
+}
+
+model ManualBookDraft {
+  id          String   @id @default(uuid())
+  document    Json
+  revision    Int      @default(1)
+  publishedRevision Int?
+  updatedAt   DateTime @updatedAt
 }

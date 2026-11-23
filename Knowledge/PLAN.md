@@ -32,3 +32,13 @@ Extract Studio-র PDF ইমপোর্টে মূল ফাইল ডিস
 ### সম্পন্ন · এক জায়গায় বই রাখা ও কাজ করা
 
 Book Manager-এর ফাইল তালিকা, ব্যাচ আপলোড, পড়া ও সম্পাদনা, সম্পাদিত কপি সেভ এবং পুনরায় খোলা যোগ হয়েছে। গ্রহণযোগ্যতার যাচাই Knowledge/PROJECT_CONTEXT.md-তে আছে। পরবর্তী ডিভাইস পরীক্ষায় Android ব্রাউজারে ব্যাচ আপলোড, বড় তালিকা স্ক্রল এবং সম্পাদিত বই পুনরায় খোলার অভিজ্ঞতা মাপতে হবে।
+
+## Custom Book Builder
+
+1. Add a revisioned draft in PostgreSQL with stable section IDs, parent IDs and sibling order. Keep legacy topic IDs for existing books.
+2. Add **Build Manually** to Admin Books. Provide book metadata, nested sections, outline paste, reorder and reparent controls, Markdown editing, preview and draft autosave.
+3. Publish visible sections in one transaction. Use the existing catalog topic model for navigation, progress and search. Preserve the published version while changes are in draft.
+4. Render nested sections in the Reader and include the full section path in Search. Keep interface labels and messages in English.
+5. Verify four levels, draft reload, hidden sections, revision conflicts and invalid trees in PostgreSQL. Follow with browser verification of the full workflow.
+
+Steps 1–4 are implemented. The PostgreSQL and TypeScript checks passed. Browser verification remains open. PDF outline import, assistant commands and historical topic migration remain follow-up work.

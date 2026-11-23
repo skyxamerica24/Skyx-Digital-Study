@@ -198,7 +198,7 @@ export default function AdminExtendedSections() {
                 onChange={(e) => setSubjLang(e.target.value as BookLanguage)}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white"
               >
-                <option value="bilingual">Bilingual (EN + বাংলা)</option>
+                <option value="bilingual">Bilingual (EN + Bangla)</option>
                 <option value="en">English</option>
                 <option value="bn">Bangla</option>
               </select>
@@ -638,7 +638,7 @@ export default function AdminExtendedSections() {
               type="text"
               value={testQuery}
               onChange={(e) => setTestQuery(e.target.value)}
-              placeholder="Test bilingual search query (e.g., SA Node, হৃৎপিণ্ড, Balmer)"
+              placeholder="Test bilingual search query (e.g., SA Node, heart, Balmer)"
               className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
             />
           </div>

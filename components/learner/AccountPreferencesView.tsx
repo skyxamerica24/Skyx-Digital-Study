@@ -164,7 +164,7 @@ export default function AccountPreferencesView({ embedded = false }: AccountPref
               Reader Typography & Comfort Studio
             </h2>
             <p className="text-[11px] text-slate-500">
-              Choose from 6 balanced English + বাংলা typefaces and paper surfaces
+              Choose from 6 balanced English + Bangla typefaces and paper surfaces
             </p>
           </div>
         </div>
@@ -218,10 +218,10 @@ export default function AccountPreferencesView({ embedded = false }: AccountPref
           }}
         >
           <div className="font-semibold mb-1">
-            Structure of the Human Heart · মানব হৃৎপিণ্ডের গঠন
+            Structure of the Human Heart
           </div>
           <p className="opacity-85 text-[0.92em]">
-            The human heart pumps oxygen-rich blood through systemic circulation. মানব হৃৎপিণ্ড চারটি প্রকোষ্ঠে বিভক্ত এবং নিরবচ্ছিন্নভাবে রক্ত সঞ্চালন করে।
+            The human heart pumps oxygen-rich blood through systemic circulation. It has four chambers.
           </p>
         </div>
 
@@ -260,9 +260,9 @@ export default function AccountPreferencesView({ embedded = false }: AccountPref
               onChange={(e) => updateComfort({ preferredLanguage: e.target.value as BookLanguage })}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-indigo-500"
             >
-              <option value="bilingual">Bilingual (English + বাংলা)</option>
+              <option value="bilingual">Bilingual (English + Bangla)</option>
               <option value="en">English Only</option>
-              <option value="bn">Bangla (বাংলা)</option>
+              <option value="bn">Bangla</option>
             </select>
           </label>
 

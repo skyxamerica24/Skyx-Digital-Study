@@ -184,7 +184,7 @@ export default function PageCleanupPanel({
               <span>
                 <strong className="text-slate-900">Strip standalone page numbers</strong>
                 <span className="block text-[11px] text-slate-500">
-                  Removes lines like &quot;12&quot;, &quot;১২&quot;, &quot;Page 5&quot;, &quot;পৃষ্ঠা ৫&quot;
+                  Removes standalone page number lines such as &quot;12&quot; and &quot;Page 5&quot;.
                 </span>
               </span>
             </label>

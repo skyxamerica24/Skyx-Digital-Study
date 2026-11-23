@@ -128,6 +128,22 @@ export default function BookReaderWorkspace() {
     [topics, activeBook]
   );
 
+  const manualToc = useMemo(() => {
+    const depth = new Map<string, number>();
+    const hidden = new Set<string>();
+    const children = new Set(bookTopics.flatMap(topic => topic.builderParentId ? [topic.builderParentId] : []));
+    return bookTopics.filter(topic => topic.builderPath).flatMap(topic => {
+      const parent = topic.builderParentId;
+      const level = parent ? (depth.get(parent) ?? 0) + 1 : 0;
+      depth.set(topic.id, level);
+      if (parent && (hidden.has(parent) || collapsedChapters[parent])) hidden.add(topic.id);
+      if (sidebarSearch.trim()) {
+        if (!topic.builderPath!.toLowerCase().includes(sidebarSearch.trim().toLowerCase())) return [];
+      } else if (hidden.has(topic.id)) return [];
+      return [{ topic, level, hasChildren: children.has(topic.id) }];
+    });
+  }, [bookTopics, collapsedChapters, sidebarSearch]);
+
   const activeTopic = useMemo(
     () => bookTopics.find((t) => t.id === activeTopicId) || bookTopics[0],
     [bookTopics, activeTopicId]
@@ -590,7 +606,23 @@ export default function BookReaderWorkspace() {
 
       {/* Chapter -> Section -> Topic Tree (Theme-Matched Dark Midnight) */}
       <div className="relative z-10 flex-1 overflow-y-auto sidebar-scroll px-3 py-3 space-y-2.5">
-        {chapterTree.length === 0 ? (
+        {bookTopics.some(topic => topic.builderPath) ? (
+          manualToc.length ? manualToc.map(({ topic, level, hasChildren }) => (
+            <div key={topic.id} className="flex items-start gap-1" style={{ paddingInlineStart: Math.min(level, 10) * 9 }}>
+              {hasChildren && <button type="button" className="px-1.5 py-2 text-indigo-300"
+                disabled={Boolean(sidebarSearch.trim())} aria-label={collapsedChapters[topic.id] ? "Expand section" : "Collapse section"}
+                aria-expanded={!collapsedChapters[topic.id]}
+                onClick={() => setCollapsedChapters(previous => ({ ...previous, [topic.id]: !previous[topic.id] }))}>
+                {collapsedChapters[topic.id] ? "+" : "−"}
+              </button>}
+              <button type="button" aria-current={topic.id === activeTopic?.id ? "page" : undefined}
+                className="min-w-0 flex-1 break-words rounded px-2 py-2 text-left text-xs text-slate-100 hover:bg-white/10 aria-[current=page]:bg-indigo-500/30"
+                onClick={() => { openBookReader(topic.bookId, topic.id, "reading"); setMobileTocOpen(false); }}>
+                {completedTopicIds.has(topic.id) && <span aria-label="Completed">✓ </span>}{topic.topicTitle}
+              </button>
+            </div>
+          )) : <p className="text-sm text-slate-300">No matching sections.</p>
+        ) : chapterTree.length === 0 ? (
           <div className="text-center py-10 px-4 text-xs text-slate-500">
             No topics match &ldquo;{sidebarSearch}&rdquo;
           </div>
@@ -1096,11 +1128,11 @@ export default function BookReaderWorkspace() {
                     </div>
                   </div>
 
-                  {/* 6 Curated Multi-Font Picker (English + বাংলা) */}
+                  {/* 6 Curated Multi-Font Picker (English + Bangla) */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[11px] font-semibold text-slate-500">
-                        Reader Font (EN + বাংলা)
+                        Reader Font (EN + Bangla)
                       </span>
                       <span className="text-[10px] font-medium text-indigo-600">{activeFont.category}</span>
                     </div>
@@ -1389,6 +1421,16 @@ export default function BookReaderWorkspace() {
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {activeTopic.contentMarkdown}
                       </ReactMarkdown>
+                      {bookTopics.some(topic => topic.builderParentId === activeTopic.id) && (
+                        <nav aria-label="Child sections">
+                          <h3>In This Section</h3>
+                          <ul>{bookTopics.filter(topic => topic.builderParentId === activeTopic.id).map(topic => (
+                            <li key={topic.id}><button type="button" className="underline" onClick={() => openBookReader(topic.bookId, topic.id)}>
+                              {topic.topicTitle}
+                            </button></li>
+                          ))}</ul>
+                        </nav>
+                      )}
                     </div>
 
                     <div className={`mt-8 pt-4 border-t text-xs ${themeStyles.divider} ${themeStyles.muted}`}>

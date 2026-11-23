@@ -325,7 +325,7 @@ export default function BookManagerWorkspace() {
         const res=await fetch("/api/book-engine/imports",{method:"POST",headers:{...authHeaders(),"Content-Type":"application/json"},body:JSON.stringify(project)});
         if (!res.ok) throw new Error((await res.json()).error);
       } else await storeLocalBook(account,project);
-      await refreshShelf(); setShelfOpen(true); setArchiveMessage("সম্পাদিত কপি সেভ হয়েছে।");
+      await refreshShelf(); setShelfOpen(true); setArchiveMessage("Edited copy saved.");
     } catch(error) {notify(error instanceof Error ? error.message : "Save failed.","error");}
     finally {setExtracting(false);}
   }
@@ -368,7 +368,7 @@ export default function BookManagerWorkspace() {
       const imported = await uploadBook(file);
       const bytes = file.name.toLowerCase().endsWith(".pdf") ? new Uint8Array(await file.arrayBuffer()) : undefined;
       readBook(imported.id, imported, bytes);
-      notify("বইটি ফাইল ম্যানেজারে সেভ হয়েছে।", "success");
+      notify("Book saved to File Manager.", "success");
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Failed to open document in Reader.";
@@ -694,9 +694,9 @@ export default function BookManagerWorkspace() {
     <div className="space-y-3">
       <div className="rounded-xl border bg-white p-3 text-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="font-semibold text-indigo-700" aria-expanded={shelfOpen} onClick={() => shelfOpen ? setShelfOpen(false) : showShelf()}>বইয়ের ফাইল ম্যানেজার</button>
-          <button type="button" disabled={extracting || readerUploading} onClick={()=>shelfInput.current?.click()}>বই আপলোড</button>
-          {workspaceMode === "studio" && project && <button type="button" disabled={extracting} onClick={saveEdition}>সম্পাদিত কপি সেভ করুন</button>}
+          <button type="button" className="font-semibold text-indigo-700" aria-expanded={shelfOpen} onClick={() => shelfOpen ? setShelfOpen(false) : showShelf()}>File Manager</button>
+          <button type="button" disabled={extracting || readerUploading} onClick={()=>shelfInput.current?.click()}>Upload Books</button>
+          {workspaceMode === "studio" && project && <button type="button" disabled={extracting} onClick={saveEdition}>Save Edited Copy</button>}
           <input hidden ref={shelfInput} type="file" multiple accept=".pdf,.epub,.docx,.csv,.md,.markdown,.txt,.json" onChange={async e=>{
             const files=Array.from(e.target.files ?? []); e.target.value="";
             if (!files.length) return;
@@ -708,22 +708,22 @@ export default function BookManagerWorkspace() {
                 catch (error) { failures.push(file.name + " — " + (error instanceof Error ? error.message : "Upload failed")); }
               }
               await refreshShelf();
-              setArchiveMessage((files.length - failures.length) + "টি বই সেভ হয়েছে। " + failures.join(" · "));
+              setArchiveMessage((files.length - failures.length) + " books saved. " + failures.join(" · "));
             } catch (error) { setArchiveMessage(error instanceof Error ? error.message : "Could not refresh files."); }
             finally { setExtracting(false); }
           }}/>
         </div>
         {shelfOpen && <div className="mt-3 space-y-2">
-          <label>বই খুঁজুন <input className="rounded border px-2 py-1" value={shelfQuery} onChange={e=>setShelfQuery(e.target.value)} /></label>
-          <p className="text-xs text-slate-600">{localShelf ? "এই ব্রাউজারে সংরক্ষিত বই" : "অ্যাকাউন্টের বই"}</p>
+          <label>Search Books <input className="rounded border px-2 py-1" value={shelfQuery} onChange={e=>setShelfQuery(e.target.value)} /></label>
+          <p className="text-xs text-slate-600">{localShelf ? "Books in This Browser" : "Account Books"}</p>
           {archiveMessage && <p role="status">{archiveMessage}</p>}
           <div className="max-h-72 overflow-y-auto">
           {shelfSearch(shelfQuery).map(i=><div key={i.id} className="flex items-center gap-3 border-t py-2">
-            <span className="min-w-0 flex-1 break-words">{i.fileName}{i.edited && " · সম্পাদিত"}{i.edited && i.createdAt && <small className="block">{new Date(i.createdAt).toLocaleString("bn-BD")}</small>}</span>
-            <button disabled={extracting} onClick={()=>openShelfBook(i,"reader")}>পড়ুন</button>
-            <button disabled={extracting} onClick={()=>openShelfBook(i,"studio")}>সম্পাদনা</button>
+            <span className="min-w-0 flex-1 break-words">{i.fileName}{i.edited && " · Edited"}{i.edited && i.createdAt && <small className="block">{new Date(i.createdAt).toLocaleString("en-GB")}</small>}</span>
+            <button disabled={extracting} onClick={()=>openShelfBook(i,"reader")}>Read</button>
+            <button disabled={extracting} onClick={()=>openShelfBook(i,"studio")}>Edit</button>
           </div>)}
-          {!shelfItems.length && !archiveMessage && <p>তালিকায় কোনো বই নেই।</p>}
+          {!shelfItems.length && !archiveMessage && <p>No books yet.</p>}
           </div>
         </div>}
       </div>
@@ -989,7 +989,7 @@ export default function BookManagerWorkspace() {
                 </div>
 
                 <label className="mt-3 block text-sm">
-                  <input type="checkbox" checked={forceOcr} onChange={e => setForceOcr(e.target.checked)} /> বাংলা লেখা বিকৃত হলে PDF-এর সব পৃষ্ঠায় OCR চালান
+                  <input type="checkbox" checked={forceOcr} onChange={e => setForceOcr(e.target.checked)} /> Run OCR on all PDF pages if the text appears corrupted
                 </label>
                 {/* Clean Unboxed Supported Engine Strip */}
                 <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500">
@@ -1074,7 +1074,7 @@ export default function BookManagerWorkspace() {
                           }
                           className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-900 bg-white focus:outline-none focus:border-indigo-400"
                         >
-                          <option value="bn">Bangla (বাংলা)</option>
+                          <option value="bn">Bangla</option>
                           <option value="en">English</option>
                           <option value="bilingual">
                             Bilingual (Bangla + English)
@@ -1358,7 +1358,7 @@ export default function BookManagerWorkspace() {
 
                             {selectedPage.layout?.kind === "table" && (
                               <details className="w-full overflow-x-auto text-sm">
-                                <summary>শনাক্ত করা সারি ও কলাম দেখুন</summary>
+                                <summary>View Detected Rows and Columns</summary>
                                 <table className="mt-2 border-collapse"><tbody>{selectedPage.layout.rows.map((row, i) => (
                                   <tr key={i}>{row.map((cell, j) => <td key={j} className="border px-2 py-1">{cell}</td>)}</tr>
                                 ))}</tbody></table>

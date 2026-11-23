@@ -486,7 +486,7 @@ export default function TocOrganizerPanel({
                 Fast Batch TOC & Page-Range Mapper (Bangla + English)
               </h4>
               <p className="text-[11px] text-indigo-800/85">
-                Enter 1 chapter per line: <code className="px-1 py-0.5 rounded bg-white/80 font-mono">অধ্যায় ১: কোষ ও এর গঠন | 1-14</code> or prefix <code className="px-1 py-0.5 rounded bg-white/80 font-mono">--</code> for sub-sections. End pages auto-fill if omitted.
+                Enter 1 chapter per line: <code className="px-1 py-0.5 rounded bg-white/80 font-mono">Chapter 1: Cell Structure | 1-14</code> or prefix <code className="px-1 py-0.5 rounded bg-white/80 font-mono">--</code> for sub-sections. End pages auto-fill if omitted.
               </p>
             </div>
             <span className="text-[11px] font-mono font-semibold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200">
@@ -498,7 +498,7 @@ export default function TocOrganizerPanel({
             value={batchText}
             onChange={(e) => setBatchText(e.target.value)}
             rows={5}
-            placeholder={`অধ্যায় ১: কোষ ও এর গঠন | 1-12\n-- সেকশন ১.১: কোষের অঙ্গাণু | 3-7\nঅধ্যায় ২: কোষ বিভাজন | 13-25\nChapter 3: Cell Chemistry | 26`}
+            placeholder={`Chapter 1: Cell Structure | 1-12\n-- Section 1.1: Organelles | 3-7\nChapter 2: Cell Division | 13-25\nChapter 3: Cell Chemistry | 26`}
             className="w-full rounded-xl border border-indigo-200 bg-white p-3 text-xs font-sans leading-relaxed focus:outline-none focus:border-indigo-500"
           />
 

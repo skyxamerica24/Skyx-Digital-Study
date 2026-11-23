@@ -239,7 +239,7 @@ export default function ExportPublishHub({
               Multi-Format Export Hub
             </h2>
             <p className="text-[11.5px] text-slate-500">
-              সব ফরম্যাট ব্রাউজারে তাৎক্ষণিক তৈরি হয়ে সরাসরি আপনার ডিভাইসে ডাউনলোড হবে — কোনো ক্লাউড স্টোরেজ ছাড়াই।
+              Exports download directly to your device.
             </p>
           </div>
         </div>
@@ -260,7 +260,7 @@ export default function ExportPublishHub({
                 Portable .skyxbook.json
               </h3>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                লসলেস মাস্টার প্রজেক্ট ফাইল। যেকোনো দিন Upload করে ঠিক যেখানে শেষ করেছিলেন সেখান থেকেই রিজিউম করুন।
+                A lossless project file for resuming your work.
               </p>
             </div>
             <button
@@ -291,7 +291,7 @@ export default function ExportPublishHub({
                 Full .skyxbook.zip Bundle
               </h3>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                এক জিপে মাস্টার JSON, সব অধ্যায়ের Markdown, CSV, ও প্রিন্ট-রেডি HTML ব্যাকআপ আর্কাইভ।
+                Archive the master project, chapter Markdown, CSV and printable HTML together.
               </p>
             </div>
             <button
@@ -322,7 +322,7 @@ export default function ExportPublishHub({
                 Chapter-Wise .md ZIP
               </h3>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                প্রতিটি অধ্যায় আলাদা নম্বরযুক্ত `.md` ফাইল ও `SUMMARY.md` সূচিপত্রসহ (CMS / GitBook রেডি)।
+                Numbered Markdown chapters with a SUMMARY.md table of contents.
               </p>
             </div>
             <button
@@ -349,7 +349,7 @@ export default function ExportPublishHub({
                 Single .md &amp; Structured JSON
               </h3>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                পুরো বই এক ফাইলে YAML Frontmatter-সহ Markdown অথবা API-রেডি স্ট্রাকচার্ড JSON।
+                Export one Markdown file with YAML front matter or structured JSON.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -388,7 +388,7 @@ export default function ExportPublishHub({
                 CSV Dataset (Bangla Excel)
               </h3>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                UTF-8 BOM যুক্ত CSV যাতে বাংলা লেখা Excel / Google Sheets-এ ভাঙবে না।
+                The CSV includes a UTF-8 BOM for spreadsheet compatibility.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -426,7 +426,7 @@ export default function ExportPublishHub({
                 Print-Ready A4 HTML Book
               </h3>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                কভার, সূচিপত্র ও বাংলা-ইংরেজি ফন্টসহ A4 প্রিন্ট বা PDF সেভ করার রেডি পেপার লেআউট।
+                A4 layout with a cover, contents and Bengali fonts for print or PDF.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
@@ -465,10 +465,10 @@ export default function ExportPublishHub({
                 <span>Skyx Book Reader Bridge</span>
               </div>
               <h3 className="font-display text-sm sm:text-base font-bold text-slate-900">
-                সরাসরি Skyx Book Reader-এ পাবলিশ ও প্রিভিউ করুন
+                Publish and Preview in Skyx Book Reader
               </h3>
               <p className="text-[11.5px] text-slate-500">
-                আপনার সাজানো অধ্যায়গুলো এক ক্লিকেই Skyx Academy-এর স্মার্ট রিডারে (হাইলাইট, নোট, ফন্ট কম্ফোর্ট ও AI Tutor সহ) বই হিসেবে যুক্ত হবে।
+                Open the organized chapters as a book in the reader with notes, highlights and AI tutoring.
               </p>
             </div>
           </div>
@@ -591,10 +591,10 @@ export default function ExportPublishHub({
                 <span>VPS Local Disk Storage Adapter</span>
               </div>
               <h3 className="font-display text-sm sm:text-base font-bold text-slate-900">
-                নিজস্ব VPS হার্ডডিস্ক স্টোরেজ (Docker ছাড়া)
+                VPS Local Disk Storage
               </h3>
               <p className="text-[11.5px] text-slate-500">
-                সার্ভার-সাইড স্টোরেজ অ্যাডাপ্টার তৈরি আছে। AI Studio-তে এটি নিরাপদে Portable Mode-এ থাকে; আপনার VPS-এ হোস্ট করলে নিচের ৩ লাইন `.env`-এ দিলেই লোকাল ডিস্কে সেভ হবে।
+                Configure these environment variables to enable local disk storage on your VPS.
               </p>
             </div>
             <span
@@ -802,7 +802,7 @@ export default function ExportPublishHub({
                 {printOptions.includeToc && sortedChapters.length > 0 && (
                   <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 sm:p-5 space-y-2.5">
                     <h2 className="font-display text-sm font-bold text-indigo-900">
-                      সূচিপত্র · Table of Contents
+                      Table of Contents
                     </h2>
                     <ol className="space-y-1.5 text-xs">
                       {sortedChapters.map((ch) => (

@@ -25,7 +25,7 @@ export default function GlobalSearchModal() {
   const bookSearch = useMemo(() => createSearchIndex(books, b =>
     [b.title, [b.subtitle, b.subject, b.author, b.description].join(" ")]), [books]);
   const topicSearch = useMemo(() => createSearchIndex(topics, t =>
-    [t.topicTitle, [t.chapterTitle, t.sectionTitle, t.searchTokens, t.contentMarkdown].join(" ")]), [topics]);
+    [t.topicTitle, [t.chapterTitle, t.sectionTitle, t.builderPath, t.searchTokens, t.contentMarkdown].join(" ")]), [topics]);
   const questionSearch = useMemo(() => createSearchIndex(questions, q =>
     [q.stem, [q.chapterTitle, q.explanation].join(" ")]), [questions]);
   const results = useMemo(() => ({
@@ -63,7 +63,7 @@ export default function GlobalSearchModal() {
                 type="text"
                 value={queryText}
                 onChange={(e) => setQueryText(e.target.value)}
-                placeholder="Search books, chapters, topics, বাংলা terms, or exam questions..."
+                placeholder="Search books, chapters, topics, Bangla terms, or exam questions..."
                 className="flex-1 text-sm text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
               />
               {queryText && (
@@ -168,7 +168,7 @@ export default function GlobalSearchModal() {
                                     {topic.topicTitle}
                                   </div>
                                   <div className="text-xs text-slate-500 truncate">
-                                    {parentBook?.title} · {topic.chapterTitle}
+                                    {parentBook?.title} · {topic.builderPath || topic.chapterTitle}
                                   </div>
                                 </div>
                               </div>

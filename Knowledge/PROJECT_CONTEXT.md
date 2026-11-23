@@ -65,3 +65,9 @@ Smart Reader ও Extract Studio একই ফাইল তালিকা ব্
 VPS মোডে মূল ফাইলের হ্যাশ দিয়ে ডিস্কে ফাইল চিহ্নিত হয়। আগের PdfImport রেকর্ডও তালিকায় আসে। সম্পাদিত প্রজেক্ট আলাদা BookEdition রেকর্ডে gzip করে রাখা হয়। একই প্রজেক্টের অভিন্ন স্ন্যাপশট পুনরায় সেভ করলে একই রেকর্ড ফেরে। নতুন সংস্করণে প্রজেক্টের লেখা ও বিন্যাস থাকে, মূল PDF বাইনারি থাকে না। Portable মোডে IndexedDB-তে বর্তমান ব্রাউজার ও অ্যাকাউন্টের তালিকা থাকে। ব্রাউজারের সাইট ডেটা মুছলে সেই স্থানীয় কপি মুছে যায়।
 
 ডেভেলপমেন্ট পরীক্ষা: PDF ও বাংলা TXT আপলোড, একই PDF দুই অ্যাকাউন্টে এক ডিস্ক কপি, মূল ফাইলের বাইট মেলানো, সম্পাদিত সংস্করণ পুনরায় খোলা, একই সংস্করণ দুবার সেভ এবং অ্যাকাউন্ট অনুযায়ী পড়ার অনুমতি যাচাই হয়েছে।
+
+## Manual book authoring
+
+Admin → Books → Build Manually creates revisioned drafts with nested sections and Markdown. Save Draft establishes the first revision, and later edits to an existing draft autosave after a short pause. Publish writes visible sections to the catalog in a single PostgreSQL transaction. Published sections use stable topic IDs, and the Reader and Global Search use the same IDs to open the exact section. Existing topics retain their IDs. A hidden parent also hides its descendants. Drafts are available to administrators.
+
+PostgreSQL verification covered a four-level Bangla outline, draft reload, Bengali breadcrumb lookup, publication isolation, stale revisions, hidden sections and cycle rejection. TypeScript verification passed. Browser verification remains open.

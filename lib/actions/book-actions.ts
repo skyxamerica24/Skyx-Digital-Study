@@ -51,6 +51,7 @@ export async function getBook(id: string) {
     where: { id },
     include: {
       topics: {
+        where: { OR: [{ builderPath: null }, { isPublished: true }] },
         orderBy: { orderIndex: 'asc' },
       },
       questions: {
@@ -65,6 +66,7 @@ export async function getAllBooks() {
     orderBy: { createdAt: 'desc' },
     include: {
       topics: {
+        where: { OR: [{ builderPath: null }, { isPublished: true }] },
         orderBy: { orderIndex: 'asc' },
       }
     }
@@ -130,14 +132,14 @@ export async function getTopics(bookId: string) {
 
 export async function getAllTopics(bookId: string) {
   return prisma.bookTopic.findMany({
-    where: { bookId },
+    where: { bookId, OR: [{ builderPath: null }, { isPublished: true }] },
     orderBy: { orderIndex: 'asc' }
   })
 }
 
 export async function getTopic(id: string) {
-  return prisma.bookTopic.findUnique({
-    where: { id }
+  return prisma.bookTopic.findFirst({
+    where: { id, OR: [{ builderPath: null }, { isPublished: true }] }
   })
 }
 

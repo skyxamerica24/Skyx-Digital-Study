@@ -125,9 +125,9 @@ export default function BookLibraryView() {
               className="col-span-5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl bg-white/[0.08] border border-white/[0.12] text-[11.5px] sm:text-xs font-medium text-slate-100 focus:outline-none focus:border-indigo-400/70 cursor-pointer"
             >
               <option value="all" className="bg-[#0B1021]">All Lang</option>
-              <option value="bilingual" className="bg-[#0B1021]">EN + বাংলা</option>
+              <option value="bilingual" className="bg-[#0B1021]">EN + Bangla</option>
               <option value="en" className="bg-[#0B1021]">English</option>
-              <option value="bn" className="bg-[#0B1021]">বাংলা</option>
+              <option value="bn" className="bg-[#0B1021]">Bangla</option>
             </select>
           </div>
         </div>

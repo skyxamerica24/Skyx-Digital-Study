@@ -230,7 +230,7 @@ export default function VisualBookEditor({
       Highlight.configure({ multicolor: false }),
       Placeholder.configure({
         placeholder:
-          "এখানে অধ্যায়টি সাজানো শুরু করুন অথবা '+ Block' বাটন থেকে সংজ্ঞা, নোট, সূত্র, টেবিল বা প্রশ্ন যোগ করুন...",
+          "Start writing or use + Block to insert a definition, note, formula, table or question.",
       }),
       TableKit.configure({
         table: {
@@ -325,7 +325,7 @@ export default function VisualBookEditor({
   const handleCreateQuickChapter = () => {
     const updated = addChapterToProject(
       project,
-      `অধ্যায় ${project.chapters.length + 1} — নতুন অধ্যায়`,
+      `Chapter ${project.chapters.length + 1}`,
       null,
       null,
       1
@@ -337,7 +337,7 @@ export default function VisualBookEditor({
       setSelectedChapterId(created.id);
     }
     setMobileSheet("none");
-    onNotify("নতুন অধ্যায় তৈরি হয়েছে।", "success");
+    onNotify("Chapter created.", "success");
   };
 
   const handleInsertBlock = (template: BookBlockTemplate) => {
@@ -350,7 +350,7 @@ export default function VisualBookEditor({
     }
     setShowDesktopBlocks(false);
     setMobileSheet("none");
-    onNotify(`"${template.bnLabel}" ব্লক যুক্ত করা হয়েছে।`, "success");
+    onNotify(`"${template.label}" inserted.`, "success");
   };
 
   const handleInsertSourceText = (text: string, pageNum: number) => {
@@ -363,7 +363,7 @@ export default function VisualBookEditor({
       commitChapterPatch(activeChapter.id, { contentMarkdown: nextMd });
     }
     setMobileSheet("none");
-    onNotify(`Page ${pageNum} থেকে লেখা এডিটরে যুক্ত হয়েছে।`, "success");
+    onNotify(`Text from page ${pageNum} inserted.`, "success");
   };
 
   const handleCopySourcePage = async (pageId: string, text: string) => {
@@ -386,7 +386,7 @@ export default function VisualBookEditor({
       caseSensitive
     );
     if (count === 0) {
-      onNotify(`"${findQuery}" এই অধ্যায়ে পাওয়া যায়নি।`, "info");
+      onNotify(`"${findQuery}" was not found in this chapter.`, "info");
       return;
     }
     commitChapterPatch(activeChapter.id, { contentMarkdown: result });
@@ -395,7 +395,7 @@ export default function VisualBookEditor({
       editor.commands.setContent(safeHtml, { emitUpdate: false });
       loadedChapterIdRef.current = activeChapter.id;
     }
-    onNotify(`এই অধ্যায়ে ${count} টি জায়গায় পরিবর্তন করা হয়েছে।`, "success");
+    onNotify(`Replaced ${count} matches in this chapter.`, "success");
   };
 
   const handleCycleStatus = () => {
@@ -444,10 +444,10 @@ export default function VisualBookEditor({
         </div>
         <div className="space-y-1">
           <h3 className="font-display text-base font-bold text-slate-900">
-            Visual Book Studio প্রস্তুত — কিন্তু এখনো কোনো অধ্যায় (Chapter) নেই
+            No chapters yet
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-            Tab 3 (TOC &amp; Chapters) থেকে Auto-Detect/Batch Paste দিয়ে অধ্যায় তৈরি করুন অথবা সরাসরি নিচের বাটনে ক্লিক করে প্রথম অধ্যায় শুরু করুন।
+            Create a chapter here or use Auto-Detect or Batch Paste in TOC &amp; Chapters.
           </p>
         </div>
         <button
@@ -456,7 +456,7 @@ export default function VisualBookEditor({
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          <span>প্রথম অধ্যায় তৈরি করুন</span>
+          <span>Create First Chapter</span>
         </button>
       </div>
     );
@@ -572,7 +572,7 @@ export default function VisualBookEditor({
 
         {mappedSourcePages.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[11px] text-slate-500">
-            এই অধ্যায়ে কোনো পেজ রেঞ্জ ম্যাপ করা নেই। Tab 3 (TOC &amp; Chapters) থেকে পেজ রেঞ্জ সেট করলে এখানে মূল বইয়ের পেজগুলো দেখাবে।
+            Set a page range in TOC &amp; Chapters to see the source pages here.
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -1065,7 +1065,7 @@ export default function VisualBookEditor({
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Smart Textbook Blocks — ক্লিক করলেই কার্সরে যুক্ত হবে</span>
+                    <span>Textbook Blocks</span>
                   </span>
                   <button
                     type="button"
@@ -1084,9 +1084,9 @@ export default function VisualBookEditor({
                       className="text-left p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all cursor-pointer"
                     >
                       <div className="text-xs font-bold text-slate-900">
-                        {tpl.bnLabel}{" "}
+
                         <span className="text-[10.5px] font-medium text-indigo-600">
-                          · {tpl.label}
+                          {tpl.label}
                         </span>
                       </div>
                       <p className="text-[10.5px] text-slate-500 mt-0.5 line-clamp-1">
@@ -1241,7 +1241,7 @@ export default function VisualBookEditor({
                     }
                     rows={20}
                     className="w-full rounded-2xl border border-slate-200 bg-slate-950 text-slate-100 p-4 sm:p-5 text-[15px] sm:text-xs font-mono leading-relaxed focus:outline-none focus:border-indigo-400 resize-y"
-                    placeholder="# অধ্যায়ের শিরোনাম&#10;&#10;এখানে Markdown লিখুন..."
+                    placeholder="# Chapter title&#10;&#10;Enter Markdown here..."
                   />
                 </div>
               )}
@@ -1345,7 +1345,7 @@ export default function VisualBookEditor({
                     className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>+ নতুন অধ্যায় যোগ করুন</span>
+                    <span>Add Chapter</span>
                   </button>
 
                   <div className="space-y-1.5">
@@ -1395,11 +1395,9 @@ export default function VisualBookEditor({
                       className="text-left p-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 active:bg-indigo-50 active:border-indigo-400 space-y-1 cursor-pointer"
                     >
                       <div className="text-xs font-bold text-slate-900">
-                        {tpl.bnLabel}
-                      </div>
-                      <div className="text-[10.5px] font-semibold text-indigo-600">
                         {tpl.label}
                       </div>
+
                       <p className="text-[10.5px] text-slate-500 leading-snug">
                         {tpl.description}
                       </p>

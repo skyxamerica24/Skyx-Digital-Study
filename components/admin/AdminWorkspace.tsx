@@ -1,5 +1,6 @@
 "use client";
 
+import ManualBookBuilder from "./ManualBookBuilder";
 import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import ReactMarkdown from "react-markdown";
@@ -873,6 +874,8 @@ export default function AdminWorkspace() {
           </p>
         </div>
 
+        <ManualBookBuilder />
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Add New Book Form */}
           <form
@@ -896,7 +899,7 @@ export default function AdminWorkspace() {
               type="text"
               value={newBookSubtitle}
               onChange={(e) => setNewBookSubtitle(e.target.value)}
-              placeholder="Subtitle (English or বাংলা)"
+              placeholder="Subtitle (English or Bangla)"
               className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs"
             />
             <div className="grid grid-cols-2 gap-2.5">

@@ -1374,7 +1374,7 @@ export default function SmartDocumentReader({
                     : "Open Any PDF or Book to Read"}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                  যেকোনো PDF (৩০০+ পেজ বা স্ক্যান করা বইসহ), EPUB, DOCX, Markdown বা .skyxbook ফাইল ড্রপ করুন — আরামদায়কভাবে পড়ুন এবং প্রয়োজনমতো যেকোনো পেজ ম্যানুয়ালি এক্সট্রাক্ট করে সেভ করুন।
+                  Open a PDF, EPUB, DOCX, Markdown file or SkyxBook project.
                 </p>
 
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">

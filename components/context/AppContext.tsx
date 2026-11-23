@@ -182,6 +182,8 @@ function toBookTopic(topic: any): BookTopic {
     chapterNumber: topic.chapterNumber || 0,
     chapterTitle: topic.chapterTitle || "",
     sectionTitle: topic.sectionTitle || "",
+    builderPath: topic.builderPath ?? undefined,
+    builderParentId: topic.builderParentId ?? undefined,
     topicTitle: topic.topicTitle,
     orderIndex: topic.orderIndex || 0,
     contentMarkdown: topic.contentMarkdown || "",
@@ -411,6 +413,7 @@ interface AppContextValue {
   activeTopicId: string;
   activeReaderTab: string;
   setActiveReaderTab: (tabKey: string) => void;
+  applyPublishedBook: (book: Parameters<typeof toBook>[0], topics: Parameters<typeof toBookTopic>[0][]) => void;
   openBookReader: (bookId: string, topicId?: string, tabKey?: string) => void;
   activeLabModel: Exclude<Model3DKey, "">;
   setActiveLabModel: (key: Exclude<Model3DKey, "">) => void;
@@ -1947,6 +1950,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeTopicId,
         activeReaderTab,
         setActiveReaderTab,
+        applyPublishedBook: (book, nextTopics) => {
+          setBooks(items => [toBook(book), ...items.filter(item => item.id !== book.id)]);
+          setTopics(items => [...items.filter(item => item.bookId !== book.id), ...nextTopics.map(toBookTopic)]);
+        },
         openBookReader,
         activeLabModel,
         setActiveLabModel,

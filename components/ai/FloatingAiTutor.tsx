@@ -1372,7 +1372,7 @@ export default function FloatingAiTutor() {
                         Hello, how can I help?
                       </div>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        Ask anything about <strong className="text-slate-700">{pageTitle}</strong> or chat freely in English or বাংলা.
+                        Ask anything about <strong className="text-slate-700">{pageTitle}</strong> or chat freely in English or Bangla.
                       </p>
 
                       <div className="mt-4 w-full space-y-1.5">
@@ -1614,7 +1614,7 @@ export default function FloatingAiTutor() {
                         <div>
                           <div className="text-xs font-bold text-slate-900">Live Voice &amp; Screen</div>
                           <div className="text-[11px] text-slate-500 mt-0.5">
-                            Speak in English or বাংলা
+                            Speak in English or Bangla
                           </div>
                         </div>
                         <button

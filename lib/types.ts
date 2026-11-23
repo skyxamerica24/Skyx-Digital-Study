@@ -124,6 +124,8 @@ export interface Book {
 }
 
 export interface BookTopic {
+  builderPath?: string;
+  builderParentId?: string;
   id: string;
   bookId: string;
   chapterNumber: number;
