@@ -63,3 +63,7 @@ Set `APP_URL` to the public HTTPS app origin. Set `SKYX_RESET_MAIL_WEBHOOK` to a
 ### Existing catalog books
 
 In **Admin → Book Builder**, select a legacy catalog book and choose **Migrate Legacy Topics**. Review the converted hierarchy, then use **Sync & Publish**. Migrated reading sections keep their original topic IDs so references from notes, progress, questions and study tabs remain valid. Books authored in **Build Manually** have their own revisioned drafts.
+
+### Advance Assistant
+
+Use Floating Tutor → Live Voice to navigate app panels, look up an accessible topic, show an example or create study notes. The Live Voice channel requires a configured Gemini key and a supported Live model. The published Reader also offers Read Aloud using the device's speech synthesis. Implementation and verification status are in [Advance Assistant implementation](Knowledge/ADVANCE_ASSISTANT_IMPLEMENTATION.md).

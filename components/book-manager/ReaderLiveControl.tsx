@@ -72,7 +72,18 @@ export default function ReaderLiveControl(props: Props) {
     function updateActivity() {
       if (!closed && !sources.size && !pending) setStatus(thinking ? "Thinking" : "Listening");
     }
-    function onHidden() { if (document.hidden) stop(); }
+    function onHidden() {
+      if (document.hidden) {
+        interrupt();
+        for (const track of stream?.getAudioTracks() ?? []) track.enabled = false;
+        setStatus("Paused");
+      } else {
+        for (const track of stream?.getAudioTracks() ?? []) track.enabled = true;
+        signature = "";
+        updateActivity();
+        refresh();
+      }
+    }
     function refresh() {
       if (!ready || closed) return;
       clearTimeout(frameTimer);
@@ -124,7 +135,7 @@ export default function ReaderLiveControl(props: Props) {
             const source = ctx.createMediaStreamSource(stream!);
             processor = ctx.createScriptProcessor(4096, 1, 1);
             processor.onaudioprocess = event => {
-              if (!revision || closed || (socket?.bufferedAmount ?? 0) > 128000) return;
+              if (document.hidden || !revision || closed || (socket?.bufferedAmount ?? 0) > 128000) return;
               const samples = downsampleTo16k(event.inputBuffer.getChannelData(0), ctx.sampleRate);
               send({ type: "audio", data: arrayBufferToBase64(float32ToInt16(samples).buffer as ArrayBuffer) });
             };
@@ -135,7 +146,7 @@ export default function ReaderLiveControl(props: Props) {
             window.addEventListener("resize", refresh);
             setStatus("Listening");
             refresh();
-          } else if (msg.type === "audio") {
+          } else if (msg.type === "audio" && !document.hidden) {
             const samples = base64ToInt16Array(msg.data);
             const buffer = audio.createBuffer(1, samples.length, 24000);
             const output = buffer.getChannelData(0);

@@ -1,5 +1,6 @@
 "use client";
 
+import ReadAlong from "./ReadAlong";
 import React, { useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -88,6 +89,7 @@ export default function BookReaderWorkspace() {
   const [bottomSettingsOpen, setBottomSettingsOpen] = useState(false);
 
   // Selection toolbar & note modal
+  const readAlongContent = useRef<HTMLDivElement | null>(null);
   const articleRef = useRef<HTMLDivElement | null>(null);
   const [selectionPopup, setSelectionPopup] = useState<SelectionPopup | null>(null);
   const [noteModal, setNoteModal] = useState<{
@@ -1410,7 +1412,9 @@ export default function BookReaderWorkspace() {
                       )}
                     </AnimatePresence>
 
+                    <ReadAlong content={readAlongContent} topicId={activeTopic.id} language={activeBook.language} />
                     <div
+                      ref={readAlongContent}
                       className="skyx-prose"
                       style={{
                         fontFamily: activeFont.cssFontFamily,

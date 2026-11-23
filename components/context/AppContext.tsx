@@ -1,7 +1,7 @@
 "use client";
 
 import { loadStudyTabs, persistStudyTabType, persistTopicStudyTab } from "@/lib/actions/study-tab-actions";
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   SEED_AUDIT_LOGS,
   SEED_BOOKS,
@@ -417,7 +417,7 @@ interface AppContextValue {
   setActiveReaderTab: (tabKey: string) => void;
   refreshBookAccess: () => Promise<void>;
   applyPublishedBook: (book: Parameters<typeof toBook>[0], topics: Parameters<typeof toBookTopic>[0][]) => void;
-  openBookReader: (bookId: string, topicId?: string, tabKey?: string) => void;
+  openBookReader: (bookId: string, topicId?: string, tabKey?: string) => Promise<boolean>;
   activeLabModel: Exclude<Model3DKey, "">;
   setActiveLabModel: (key: Exclude<Model3DKey, "">) => void;
   open3dLab: (modelKey?: Exclude<Model3DKey, "">) => void;
@@ -463,7 +463,7 @@ interface AppContextValue {
   notify: (text: string, tone?: "info" | "success" | "error") => void;
 
   // Learner Actions
-  addAnnotation: (input: Omit<LearnerAnnotation, "id" | "userId" | "createdAt" | "updatedAt">) => Promise<void>;
+  addAnnotation: (input: Omit<LearnerAnnotation, "id" | "userId" | "createdAt" | "updatedAt">) => Promise<boolean>;
   deleteAnnotation: (id: string) => Promise<void>;
   updateTopicProgress: (book: Book, topic: BookTopic, percentComplete: number, isCompleted: boolean) => Promise<void>;
   saveExamAttempt: (attempt: Omit<ExamAttempt, "id" | "userId" | "status" | "createdAt">, attemptId: string) => Promise<boolean>;
@@ -639,13 +639,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const broadcastChanRef = useRef<BroadcastChannel | null>(null);
   const deletedModelIdsRef = useRef<Set<string>>(new Set());
 
-  const notify = (text: string, tone: "info" | "success" | "error" = "info") => {
+  const notify = useCallback((text: string, tone: "info" | "success" | "error" = "info") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setToasts((prev) => [...prev.slice(-3), { id, text, tone }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3600);
-  };
+  }, []);
 
   // Global Cmd+K / Ctrl+K shortcut for instant search
   useEffect(() => {
@@ -1093,11 +1093,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (token) {
       try {
         const book = await getBook(bookId, token);
-        if (token !== getSessionToken()) return;
+        if (token !== getSessionToken()) return false;
         if (!book) {
           await refreshBookAccess();
           notify("This book is unavailable in your library.", "error");
-          return;
+          return false;
         }
         matchingTopics = book.topics.map(toBookTopic);
         setBooks(items => items.some(item => item.id === bookId)
@@ -1105,7 +1105,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTopics(items => [...items.filter(item => item.bookId !== bookId), ...matchingTopics]);
       } catch {
         notify("Could not open the book.", "error");
-        return;
+        return false;
       }
     }
     const ordered = [...matchingTopics].sort((a, b) => a.orderIndex - b.orderIndex);
@@ -1114,6 +1114,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActiveReaderTab(tabKey);
     setActivePanel("learner");
     setLearnerRoute("reader");
+    return true;
   };
 
   const open3dLab = (modelKey?: Exclude<Model3DKey, "">) => {
@@ -1156,7 +1157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       setAnnotations((prev) => [record, ...prev]);
       notify(`Saved ${input.type} to your Study Vault.`, "success");
-      return;
+      return true;
     }
     try {
       const result = await createAnnotationAction(getSessionToken(), {
@@ -1175,9 +1176,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error("Failed to add annotation:", err);
       notify("Could not save to your Study Vault.", "error");
-      return;
+      return false;
     }
     notify(`Saved ${input.type} to your Study Vault.`, "success");
+    return true;
   };
 
   const deleteAnnotation = async (id: string) => {
