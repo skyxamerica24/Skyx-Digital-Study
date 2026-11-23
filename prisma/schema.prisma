@@ -487,3 +487,28 @@ model AiToolRun {
   @@index([channelId])
   @@index([userId, channelId])
 }
+
+model PdfImport {
+  id         String          @id @default(uuid())
+  ownerId    String
+  sha256     String
+  fileName   String
+  sourcePath String
+  metadata   Json
+  createdAt  DateTime        @default(now())
+  pages      PdfImportPage[]
+
+  @@unique([ownerId, sha256])
+  @@index([ownerId, createdAt])
+}
+
+model PdfImportPage {
+  importId    String
+  pageNumber  Int
+  rawText     String
+  cleanedText String
+  details     Json
+  document    PdfImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@id([importId, pageNumber])
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getSessionToken } from "@/lib/auth/session-storage";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
@@ -224,6 +225,37 @@ export default function BookManagerWorkspace() {
   const [project, setProject] = useState<SkyxBookProject | null>(null);
   const [activeTab, setActiveTab] = useState<StudioTab>("ingest");
   const [extracting, setExtracting] = useState(false);
+  const [savedPdfs, setSavedPdfs] = useState<{ id: string; fileName: string }[]>([]);
+  const [archiveMessage, setArchiveMessage] = useState("");
+  const loadArchive = async (id?: string) => {
+    setExtracting(true);
+    setArchiveMessage("");
+    try {
+      const res = await fetch("/api/book-engine/imports" + (id ? "?id=" + encodeURIComponent(id) : ""), {
+        headers: { Authorization: "Bearer " + (getSessionToken() || "") },
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (id) {
+        const restored: SkyxBookProject = data.project;
+        setProject(restored);
+        setSelectedPageId(restored.pages[0]?.id ?? null);
+        setPageSliceIndex(0);
+        setPageSearch("");
+        setPageFilter("all");
+        setActiveTab("pages");
+      } else {
+        setSavedPdfs(data.items);
+        if (!data.enabled) setArchiveMessage("PDF archiving is available in VPS storage mode.");
+        else if (!data.items.length) setArchiveMessage("No saved PDF imports yet.");
+      }
+    } catch (error) {
+      setArchiveMessage(error instanceof Error ? error.message : "Could not open the archive.");
+    } finally {
+      setExtracting(false);
+    }
+  };
   const [dragActive, setDragActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -290,6 +322,7 @@ export default function BookManagerWorkspace() {
       formData.append("file", file);
       const res = await fetch("/api/book-engine/extract", {
         method: "POST",
+        headers: { Authorization: "Bearer " + (getSessionToken() || "") },
         body: formData,
       });
       const data = await res.json();
@@ -418,6 +451,7 @@ export default function BookManagerWorkspace() {
 
       const res = await fetch("/api/book-engine/extract", {
         method: "POST",
+        headers: { Authorization: "Bearer " + (getSessionToken() || "") },
         body: formData,
       });
 
@@ -434,7 +468,7 @@ export default function BookManagerWorkspace() {
       setPageFilter("all");
       setActiveTab("pages");
       notify(
-        `Extracted "${extracted.title}" (${extracted.pages.length} pages · ${extracted.chapters.length} chapters)`,
+        `${data.archived ? "Saved PDF and extracted pages for" : "Extracted"} "${extracted.title}" (${extracted.pages.length} pages · ${extracted.chapters.length} chapters)`,
         "success"
       );
     } catch (err: unknown) {
@@ -909,6 +943,14 @@ export default function BookManagerWorkspace() {
                     <span>Load Bilingual Sample</span>
                   </button>
                 </div>
+
+                <button type="button" disabled={extracting} className="mt-3 text-sm text-indigo-700 underline" onClick={() => loadArchive()}>
+                  Open saved PDF imports
+                </button>
+                {archiveMessage && <p role="status">{archiveMessage}</p>}
+                {savedPdfs.map(item => (
+                  <div key={item.id}><button type="button" disabled={extracting} onClick={() => loadArchive(item.id)} className="text-sm underline">{item.fileName}</button></div>
+                ))}
 
                 {/* Clean Unboxed Supported Engine Strip */}
                 <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500">

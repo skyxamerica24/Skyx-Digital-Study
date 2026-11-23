@@ -5,6 +5,9 @@ import {
   isSupportedExtension,
 } from "@/lib/book-engine/extractors";
 
+import { getCurrentUser } from "@/lib/db/user";
+import { pdfStorageEnabled, savePdfImport } from "@/lib/book-engine/pdf-imports";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -60,11 +63,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    let ownerId: string | undefined;
+    if (ext === "pdf" && pdfStorageEnabled()) {
+      const token = req.headers.get("authorization")?.replace(/^Bearer /i, "") ?? null;
+      const user = await getCurrentUser(token);
+      if (!user) return NextResponse.json({ error: "Sign in before importing a PDF." }, { status: 401 });
+      ownerId = user.userId;
+    }
     const arrayBuffer = await entry.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     const project = await extractDocumentBuffer(buffer, safeFileName);
 
+    if (ownerId) {
+      try {
+        const saved = await savePdfImport(ownerId, project, buffer);
+        if (!saved) throw new Error("Import missing");
+        return NextResponse.json({ project: saved, archived: true, warnings: saved.extraction.warnings });
+      } catch (error) {
+        console.error("PDF archive write failed", error);
+        return NextResponse.json({ error: "Could not save the PDF and extracted pages. Retry the upload." }, { status: 503 });
+      }
+    }
     return NextResponse.json({
       project,
       warnings: project.extraction.warnings,
