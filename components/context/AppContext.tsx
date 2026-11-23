@@ -701,8 +701,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           flashcardsData,
           subscriptionsData,
         ] = await Promise.all([
-          getAnnotations(userId).catch(() => []),
-          getReadingProgressAction(userId).catch(() => []),
+          getAnnotations(getSessionToken()).catch(() => []),
+          getReadingProgressAction(getSessionToken()).catch(() => []),
           getExamAttempts(userId).catch(() => []),
           getFlashcards(userId).catch(() => []),
           getSubscriptionRecords(userId).catch(() => []),
@@ -1106,8 +1106,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const result = await createAnnotationAction({
-        userId: uid,
+      const result = await createAnnotationAction(getSessionToken(), {
         bookId: input.bookId,
         topicId: input.topicId,
         bookTitle: input.bookTitle.slice(0, 190),
@@ -1117,12 +1116,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         quote: input.quote.slice(0, 1900),
         noteText: input.noteText.slice(0, 3900),
       });
-      if (result && !('error' in result) && result.annotation) {
-        const ann = result.annotation as unknown as LearnerAnnotation;
-        setAnnotations((prev) => [{ ...ann, bookId: ann.bookId || '', topicId: ann.topicId || '', bookTitle: ann.bookTitle || '', topicTitle: ann.topicTitle || '', color: ann.color || '', quote: ann.quote || '', noteText: ann.noteText || '' }, ...prev]);
-      }
+      if ('error' in result) throw new Error(result.error);
+      const ann = result.annotation as unknown as LearnerAnnotation;
+      setAnnotations((prev) => [{ ...ann, bookId: ann.bookId || '', topicId: ann.topicId || '', bookTitle: ann.bookTitle || '', topicTitle: ann.topicTitle || '', color: ann.color || '', quote: ann.quote || '', noteText: ann.noteText || '' }, ...prev]);
     } catch (err) {
       console.error("Failed to add annotation:", err);
+      notify("Could not save to your Study Vault.", "error");
+      return;
     }
     notify(`Saved ${input.type} to your Study Vault.`, "success");
   };
@@ -1130,9 +1130,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteAnnotation = async (id: string) => {
     if (user) {
       try {
-        await deleteAnnotationAction(id);
+        await deleteAnnotationAction(getSessionToken(), id);
       } catch (err) {
         console.error("Failed to delete annotation:", err);
+        notify("Could not remove the item from your Study Vault.", "error");
+        return;
       }
     }
     setAnnotations((prev) => prev.filter((a) => a.id !== id));
@@ -1161,7 +1163,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (user) {
       try {
-        await updateReadingProgressAction(uid, {
+        await updateReadingProgressAction(getSessionToken(), {
           bookId: book.id,
           topicId: topic.id,
           bookTitle: nextProgress.bookTitle,
@@ -1172,6 +1174,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (err) {
         console.error("Failed to update progress:", err);
+        notify("Could not save reading progress.", "error");
+        return;
       }
     }
     setReadingProgress((prev) => {
