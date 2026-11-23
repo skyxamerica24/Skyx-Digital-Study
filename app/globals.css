@@ -1,0 +1,461 @@
+@import url("https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Merriweather:wght@400;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@400;600;700&family=Tiro+Bangla&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  --font-manrope: "Manrope";
+  --font-jakarta: "Plus Jakarta Sans";
+  --font-dm-sans: "DM Sans";
+  --font-lora: "Lora";
+  --font-source-serif: "Source Serif 4";
+  --font-merriweather: "Merriweather";
+  --font-noto-sans-bn: "Noto Sans Bengali";
+  --font-noto-serif-bn: "Noto Serif Bengali";
+  --font-tiro-bn: "Tiro Bangla";
+  --font-anek-bn: "Anek Bangla";
+  --font-jetbrains: "JetBrains Mono";
+}
+
+@theme inline {
+  --font-sans: var(--font-jakarta), var(--font-noto-sans-bn), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-manrope), var(--font-noto-sans-bn), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-lora), var(--font-noto-serif-bn), Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-jakarta), var(--font-noto-sans-bn), ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-manrope), var(--font-noto-sans-bn), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Ergonomic Long-Form Book Reading Prose (inherits chosen reader font cleanly) */
+.skyx-prose {
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.skyx-prose h1,
+.skyx-prose h2 {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+  margin-top: 1.85em;
+  margin-bottom: 0.7em;
+}
+
+.skyx-prose h2:first-child {
+  margin-top: 0;
+}
+
+.skyx-prose h3,
+.skyx-prose h4 {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.42;
+  margin-top: 1.5em;
+  margin-bottom: 0.55em;
+}
+
+.skyx-prose p {
+  margin-bottom: 1.2em;
+}
+
+.skyx-prose ul,
+.skyx-prose ol {
+  margin-top: 0.55em;
+  margin-bottom: 1.3em;
+  padding-left: 1.5em;
+}
+
+.skyx-prose ul {
+  list-style-type: disc;
+}
+
+.skyx-prose ol {
+  list-style-type: decimal;
+}
+
+.skyx-prose li {
+  margin-bottom: 0.52em;
+}
+
+.skyx-prose blockquote {
+  margin: 1.45em 0;
+  padding: 1em 1.25em;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.skyx-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4em 0;
+  font-size: 0.9em;
+}
+
+.skyx-prose th,
+.skyx-prose td {
+  padding: 0.65em 0.9em;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  text-align: left;
+}
+
+.skyx-prose th {
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.skyx-prose code {
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.86em;
+  padding: 0.16em 0.42em;
+  border-radius: 0.375rem;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.skyx-prose strong {
+  font-weight: 600;
+}
+
+/* Subtle custom scrollbars for sidebar & workspace */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.32);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.55);
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+/* ==========================================================================
+   Global Mobile-First PWA Layout System (2-Per-Row Standard on Mobile)
+   ========================================================================== */
+@layer base {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+}
+
+/* Global 2-column KPI grid on mobile -> 4 columns on xl desktop */
+.skyx-grid-kpi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .skyx-grid-kpi {
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .skyx-grid-kpi {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Global 2-column content/book card grid on mobile -> 3 columns on xl desktop */
+.skyx-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .skyx-grid-cards {
+    gap: 1.15rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .skyx-grid-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Global 2-column compact pair grid across mobile & desktop */
+.skyx-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .skyx-grid-two {
+    gap: 1rem;
+  }
+}
+
+/* Safe-area inset support for standalone iOS / Android PWAs */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Hide scrollbars cleanly for mobile touch-scroll toolbars */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==========================================================================
+   Tiptap v3 Visual Book & Block Studio Editorial Canvas (.skyx-tiptap)
+   ========================================================================== */
+.skyx-tiptap .ProseMirror {
+  outline: none;
+  min-height: 360px;
+  color: #0f172a;
+  line-height: 1.82;
+  word-break: break-word;
+}
+
+.skyx-tiptap .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
+}
+
+.skyx-tiptap .ProseMirror h1 {
+  font-family: var(--font-manrope), var(--font-noto-sans-bn), ui-sans-serif, sans-serif;
+  font-size: 1.55em;
+  font-weight: 800;
+  line-height: 1.32;
+  color: #0f172a;
+  margin-top: 1.3em;
+  margin-bottom: 0.6em;
+  letter-spacing: -0.02em;
+}
+
+.skyx-tiptap .ProseMirror h1:first-child,
+.skyx-tiptap .ProseMirror h2:first-child {
+  margin-top: 0;
+}
+
+.skyx-tiptap .ProseMirror h2 {
+  font-family: var(--font-manrope), var(--font-noto-sans-bn), ui-sans-serif, sans-serif;
+  font-size: 1.28em;
+  font-weight: 700;
+  line-height: 1.38;
+  color: #1e1b4b;
+  margin-top: 1.35em;
+  margin-bottom: 0.5em;
+  padding-bottom: 0.28em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.skyx-tiptap .ProseMirror h3 {
+  font-family: var(--font-manrope), var(--font-noto-sans-bn), ui-sans-serif, sans-serif;
+  font-size: 1.1em;
+  font-weight: 700;
+  line-height: 1.42;
+  color: #312e81;
+  margin-top: 1.15em;
+  margin-bottom: 0.4em;
+}
+
+.skyx-tiptap .ProseMirror p {
+  margin-bottom: 0.9em;
+}
+
+.skyx-tiptap .ProseMirror ul,
+.skyx-tiptap .ProseMirror ol {
+  margin: 0.5em 0 1em;
+  padding-left: 1.5em;
+}
+
+.skyx-tiptap .ProseMirror ul {
+  list-style-type: disc;
+}
+
+.skyx-tiptap .ProseMirror ol {
+  list-style-type: decimal;
+}
+
+.skyx-tiptap .ProseMirror li {
+  margin-bottom: 0.35em;
+}
+
+.skyx-tiptap .ProseMirror li p {
+  margin-bottom: 0.25em;
+}
+
+.skyx-tiptap .ProseMirror blockquote {
+  margin: 1.1em 0;
+  padding: 0.85em 1.1em;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(99, 102, 241, 0.24);
+  border-left: 4px solid #4f46e5;
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.72), rgba(248, 250, 252, 0.9));
+  color: #1e293b;
+}
+
+.skyx-tiptap .ProseMirror blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.skyx-tiptap .ProseMirror mark {
+  background-color: #fef08a;
+  color: #1e293b;
+  padding: 0.08em 0.28em;
+  border-radius: 0.3rem;
+}
+
+.skyx-tiptap .ProseMirror code {
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.86em;
+  padding: 0.14em 0.38em;
+  border-radius: 0.35rem;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.skyx-tiptap .ProseMirror pre {
+  margin: 1.1em 0;
+  padding: 0.95em 1.15em;
+  border-radius: 0.875rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow-x: auto;
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.88em;
+  line-height: 1.65;
+}
+
+.skyx-tiptap .ProseMirror pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.skyx-tiptap .ProseMirror hr {
+  border: none;
+  border-top: 2px dashed #cbd5e1;
+  margin: 1.6em 0;
+}
+
+.skyx-tiptap .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.15em 0;
+  font-size: 0.92em;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid #cbd5e1;
+}
+
+.skyx-tiptap .ProseMirror th,
+.skyx-tiptap .ProseMirror td {
+  border: 1px solid #cbd5e1;
+  padding: 0.55em 0.8em;
+  text-align: left;
+  vertical-align: top;
+  min-width: 72px;
+}
+
+.skyx-tiptap .ProseMirror th {
+  background: #eef2ff;
+  color: #1e1b4b;
+  font-weight: 700;
+}
+
+.skyx-tiptap .ProseMirror td p,
+.skyx-tiptap .ProseMirror th p {
+  margin-bottom: 0;
+}
+
+.skyx-tiptap .ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(99, 102, 241, 0.14);
+  pointer-events: none;
+}
+
+.skyx-tiptap .ProseMirror th,
+.skyx-tiptap .ProseMirror td {
+  position: relative;
+}
+
+/* ==========================================================================
+   Modern PDF.js Selectable Transparent Text Layer & Optical Paper Filters
+   ========================================================================== */
+.skyx-pdf-textlayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 2;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.skyx-pdf-textlayer span,
+.skyx-pdf-textlayer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.skyx-pdf-textlayer ::selection {
+  background: rgba(79, 70, 229, 0.28);
+  color: transparent;
+}
+
+.skyx-pdf-paper-ivory canvas {
+  filter: sepia(0.14) contrast(0.98) brightness(0.99);
+}
+
+.skyx-pdf-paper-night canvas {
+  filter: invert(0.89) hue-rotate(180deg) contrast(0.94);
+}
+
+
+

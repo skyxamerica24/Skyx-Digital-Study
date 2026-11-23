@@ -1,0 +1,489 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                    String        @id @default(uuid())
+  email                 String        @unique
+  passwordHash          String
+  displayName           String?
+  photoURL              String?
+  role                  String        @default("learner") // learner | admin
+  planId                String?
+  studyStreakDays       Int           @default(0)
+  dailyAiCalls          Int           @default(0)
+  weeklyGoalMinutes     Int           @default(30)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  flashcards            Flashcard[]
+  annotations           LearnerAnnotation[]
+  readingProgress       ReadingProgress[]
+  examAttempts          ExamAttempt[]
+  subscriptionRecords   SubscriptionRecord[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Admin {
+  uid       String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Curriculum {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  name        String
+  description String?
+  orderIndex  Int       @default(0)
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  subjects    Subject[]
+  syllabi     Syllabus[]
+  books       Book[]
+
+  @@index([slug])
+  @@index([isPublished])
+}
+
+model Subject {
+  id          String    @id @default(uuid())
+  curriculumId String
+  code        String
+  name        String
+  language    String    @default("en")
+  description String?
+  orderIndex  Int       @default(0)
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  curriculum  Curriculum  @relation(fields: [curriculumId], references: [id])
+  syllabi     Syllabus[]
+
+  @@index([curriculumId])
+  @@index([isPublished])
+}
+
+model Syllabus {
+  id             String   @id @default(uuid())
+  curriculumId   String
+  subjectId      String?
+  title          String
+  examTarget     String?
+  academicYear   String?
+  chaptersSummary String?
+  isPublished    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  curriculum     Curriculum @relation(fields: [curriculumId], references: [id])
+  subject        Subject?   @relation(fields: [subjectId], references: [id])
+
+  @@index([curriculumId])
+  @@index([subjectId])
+  @@index([isPublished])
+}
+
+model Book {
+  id            String    @id @default(uuid())
+  curriculumId  String?
+  title         String
+  subtitle      String?
+  author        String?
+  subject       String?
+  language      String    @default("en")
+  accessTier    String    @default("free") // free | premium | admin
+  coverColor    String?
+  description   String?
+  totalTopics   Int       @default(0)
+  isPublished   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  curriculum    Curriculum? @relation(fields: [curriculumId], references: [id])
+  topics        BookTopic[]
+  studyTabs     TopicStudyTab[]
+  questions     Question[]
+  flashcards    Flashcard[]
+  annotations   LearnerAnnotation[]
+  readingProgress ReadingProgress[]
+  examAttempts  ExamAttempt[]
+  importJobs    ImportJob[]
+
+  @@index([curriculumId])
+  @@index([isPublished])
+  @@index([accessTier])
+}
+
+model BookTopic {
+  id              String    @id @default(uuid())
+  bookId          String
+  chapterNumber   Int       @default(1)
+  chapterTitle    String?
+  sectionTitle    String?
+  topicTitle      String
+  orderIndex      Int       @default(0)
+  contentMarkdown String?
+  readingMinutes  Int       @default(5)
+  model3dKey      String?
+  searchTokens    String?
+  isPublished     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  book            Book      @relation(fields: [bookId], references: [id])
+
+  @@index([bookId])
+  @@index([isPublished])
+  @@index([orderIndex])
+}
+
+model StudyTabType {
+  id            String    @id @default(uuid())
+  key           String    @unique
+  label         String
+  promptTemplate String?
+  orderIndex    Int       @default(0)
+  isSystem      Boolean   @default(false)
+  isPublished   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@index([key])
+  @@index([isPublished])
+}
+
+model TopicStudyTab {
+  id              String    @id @default(uuid())
+  bookId          String
+  topicId         String
+  tabKey          String
+  contentMarkdown String?
+  generatedByModel String?
+  isPublished     Boolean   @default(false)
+  updatedAt       DateTime  @updatedAt
+
+  book            Book      @relation(fields: [bookId], references: [id])
+
+  @@index([bookId])
+  @@index([topicId])
+  @@index([tabKey])
+}
+
+model Question {
+  id            String    @id @default(uuid())
+  bookId        String
+  topicId       String?
+  chapterTitle  String?
+  stem          String
+  options       String    // JSON array stored as text
+  correctIndex  Int
+  explanation   String?
+  difficulty    String    @default("medium") // easy | medium | hard
+  isPublished   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  book          Book      @relation(fields: [bookId], references: [id])
+
+  @@index([bookId])
+  @@index([topicId])
+  @@index([isPublished])
+}
+
+model Flashcard {
+  id           String   @id @default(uuid())
+  userId       String
+  bookId       String?
+  topicId      String?
+  bookTitle    String?
+  topicTitle   String?
+  front        String
+  back         String
+  intervalDays Int      @default(1)
+  easeFactor   Float    @default(2.5)
+  repetitions  Int      @default(0)
+  nextReviewAt DateTime @default(now())
+  lastReviewedAt DateTime?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id])
+  book         Book?    @relation(fields: [bookId], references: [id])
+
+  @@index([userId])
+  @@index([nextReviewAt])
+}
+
+model LearnerAnnotation {
+  id         String   @id @default(uuid())
+  userId     String
+  bookId     String?
+  topicId    String?
+  bookTitle  String?
+  topicTitle String?
+  type       String   @default("highlight") // highlight | note
+  color      String?
+  quote      String?
+  noteText   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id])
+  book       Book?    @relation(fields: [bookId], references: [id])
+
+  @@index([userId])
+  @@index([bookId])
+}
+
+model ReadingProgress {
+  id               String   @id @default(uuid())
+  userId           String
+  bookId           String?
+  topicId          String?
+  bookTitle        String?
+  topicTitle       String?
+  percentComplete  Float    @default(0)
+  timeSpentSeconds Int      @default(0)
+  isCompleted      Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id])
+  book             Book?    @relation(fields: [bookId], references: [id])
+
+  @@index([userId])
+  @@index([bookId])
+}
+
+model ExamAttempt {
+  id             String   @id @default(uuid())
+  userId         String
+  bookId         String?
+  examTitle      String?
+  totalQuestions Int      @default(0)
+  correctCount   Int      @default(0)
+  wrongCount     Int      @default(0)
+  skippedCount   Int      @default(0)
+  accuracyPercent Float   @default(0)
+  durationSeconds Int     @default(0)
+  status         String   @default("in_progress") // in_progress | completed
+  questionIds    String?  // JSON array stored as text
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id])
+  book           Book?    @relation(fields: [bookId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ImportJob {
+  id             String   @id @default(uuid())
+  bookId         String?
+  bookTitle      String?
+  sourceFileName String?
+  sourceType     String?  // pdf | csv | docx
+  status         String   @default("pending") // pending | processing | completed | failed
+  progressPercent Int     @default(0)
+  topicsDetected Int     @default(0)
+  ocrConfidence  Float?
+  notes          String?
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  book           Book?    @relation(fields: [bookId], references: [id])
+
+  @@index([status])
+  @@index([bookId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUid    String?
+  actorEmail  String?
+  action      String
+  resourceType String?
+  resourceId  String?
+  summary     String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUid])
+  @@index([actorEmail])
+  @@index([createdAt])
+}
+
+model SubscriptionPlan {
+  id            String    @id @default(uuid())
+  name          String
+  tagline       String?
+  priceMonthly  Float     @default(0)
+  currency      String    @default("USD")
+  allowedTiers  String?   // JSON array stored as text
+  dailyAiLimit  Int       @default(10)
+  has3dLab      Boolean   @default(false)
+  hasVoiceTutor Boolean  @default(false)
+  orderIndex    Int       @default(0)
+  isPublished   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  subscriptionRecords SubscriptionRecord[]
+
+  @@index([isPublished])
+  @@index([orderIndex])
+}
+
+model SubscriptionRecord {
+  id        String   @id @default(uuid())
+  userId    String
+  planId    String?
+  planName  String?
+  amount    Float    @default(0)
+  currency  String   @default("USD")
+  status    String   @default("active") // active | cancelled | expired
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  plan      SubscriptionPlan? @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model CustomAiModel {
+  id          String   @id @default(uuid())
+  modelId     String   @unique
+  displayName String
+  category    String?
+  tier        String?
+  voiceName   String?
+  notes       String?
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([modelId])
+  @@index([isEnabled])
+}
+
+model AiModelConfig {
+  id          String   @id @default(uuid())
+  taskName    String   @unique
+  primaryModel String?
+  fallbackModel String?
+  priority    Int      @default(0)
+  isEnabled   Boolean  @default(true)
+  usageCount  Int      @default(0)
+  voiceName   String?
+  secretSlot  String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([taskName])
+  @@index([isEnabled])
+}
+
+model AiCredential {
+  id           String   @id @default(uuid())
+  slotName     String   @unique
+  encryptedKey String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([slotName])
+}
+
+model SystemBootstrap {
+  id        String   @id @default(uuid())
+  initialized Boolean @default(false)
+  adminUid  String?
+  claimedAt DateTime?
+}
+
+model SessionToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+// Maps a stable channel ID to its configured model and credential
+model AiChannelConfig {
+  id             String   @id @default(uuid())
+  channelId      String   @unique  // e.g. "chat", "live-voice", "study-content", "questions"
+  label          String   // human-readable label, e.g. "Floating AI Chat"
+  modelId        String?  // references CustomAiModel.modelId
+  credentialSlot String?  // references AiCredential.slotName or env slot name
+  voiceName      String?  // for live-voice channel
+  isEnabled      Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  @@index([channelId])
+  @@index([isEnabled])
+}
+
+// Per-user conversation threads, scoped to a channel
+model AiConversation {
+  id           String   @id @default(uuid())
+  userId       String
+  channelId    String   // e.g. "chat", "live-voice"
+  title        String?  // auto-generated or user-set
+  bookId       String?  // optional reference if conversation was in Book Reader
+  topicId      String?  // optional reference
+  messageCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages     AiConversationMessage[]
+
+  @@index([userId])
+  @@index([channelId])
+  @@index([userId, channelId])
+  @@index([updatedAt])
+}
+
+// Individual messages within a conversation
+model AiConversationMessage {
+  id             String   @id @default(uuid())
+  conversationId String
+  role           String   // "user" | "model"
+  content        String   // message text
+  modelUsed      String?  // effective model ID for this message
+  inputTokens    Int?     // provider-reported input tokens
+  outputTokens   Int?     // provider-reported output tokens
+  position       Int      // ordered position in conversation
+  clientOpId     String?  // stable client operation ID for idempotency
+  createdAt      DateTime @default(now())
+
+  conversation   AiConversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@index([position])
+  @@index([clientOpId])
+}
+
+// Saved results for non-chat tools (study tabs, questions, TTS, etc.)
+model AiToolRun {
+  id              String   @id @default(uuid())
+  userId          String
+  channelId       String   // e.g. "study-content", "questions", "tts"
+  resultType      String?  // e.g. "summary", "mcq_set", "audio"
+  status          String   @default("completed") // "completed" | "failed"
+  inputSummary    String?  // brief description of input (not full payload)
+  outputReference String?  // reference to stored result (e.g., TopicStudyTab.id, Question.id)
+  modelUsed       String?
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([channelId])
+  @@index([userId, channelId])
+}
