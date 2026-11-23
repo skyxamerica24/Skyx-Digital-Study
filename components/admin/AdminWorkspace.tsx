@@ -1,5 +1,6 @@
 "use client";
 
+import BookMarketplace from "@/components/store/BookMarketplace";
 import ManualBookBuilder from "./ManualBookBuilder";
 import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -875,6 +876,7 @@ export default function AdminWorkspace() {
         </div>
 
         <ManualBookBuilder />
+        <BookMarketplace manage />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Add New Book Form */}

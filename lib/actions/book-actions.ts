@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { prisma } from '../db'
+import { readableBookFilter, requireStoreUser } from '../book-store-access'
 
 const bookSchema = z.object({
   curriculumId: z.string().optional(),
@@ -33,9 +34,9 @@ const bookTopicSchema = z.object({
 
 // Book actions
 
-export async function getBooks() {
+export async function getBooks(token: string | null = null) {
   return prisma.book.findMany({
-    where: { isPublished: true },
+    where: { ...(await readableBookFilter(token)), isPublished: true },
     orderBy: { createdAt: 'desc' },
     include: {
       topics: {
@@ -46,9 +47,9 @@ export async function getBooks() {
   })
 }
 
-export async function getBook(id: string) {
-  return prisma.book.findUnique({
-    where: { id },
+export async function getBook(id: string, token: string | null = null) {
+  return prisma.book.findFirst({
+    where: { ...(await readableBookFilter(token)), id },
     include: {
       topics: {
         where: { OR: [{ builderPath: null }, { isPublished: true }] },
@@ -61,8 +62,9 @@ export async function getBook(id: string) {
   })
 }
 
-export async function getAllBooks() {
+export async function getAllBooks(token: string | null = null) {
   return prisma.book.findMany({
+    where: await readableBookFilter(token),
     orderBy: { createdAt: 'desc' },
     include: {
       topics: {
@@ -73,7 +75,8 @@ export async function getAllBooks() {
   })
 }
 
-export async function createBookAction(data: z.infer<typeof bookSchema>) {
+export async function createBookAction(token: string | null, data: z.infer<typeof bookSchema>) {
+  await requireStoreUser(token, true)
   const parsed = bookSchema.safeParse(data)
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message || 'Invalid input' }
@@ -86,7 +89,8 @@ export async function createBookAction(data: z.infer<typeof bookSchema>) {
   return { success: true, book }
 }
 
-export async function updateBookAction(id: string, data: Partial<z.infer<typeof bookSchema>>) {
+export async function updateBookAction(token: string | null, id: string, data: Partial<z.infer<typeof bookSchema>>) {
+  await requireStoreUser(token, true)
   const book = await prisma.book.update({
     where: { id },
     data
@@ -95,7 +99,8 @@ export async function updateBookAction(id: string, data: Partial<z.infer<typeof 
   return { success: true, book }
 }
 
-export async function deleteBookAction(id: string) {
+export async function deleteBookAction(token: string | null, id: string) {
+  await requireStoreUser(token, true)
   await prisma.book.delete({
     where: { id }
   })
@@ -103,7 +108,8 @@ export async function deleteBookAction(id: string) {
   return { success: true }
 }
 
-export async function publishBookAction(id: string) {
+export async function publishBookAction(token: string | null, id: string) {
+  await requireStoreUser(token, true)
   const book = await prisma.book.update({
     where: { id },
     data: { isPublished: true }
@@ -112,7 +118,8 @@ export async function publishBookAction(id: string) {
   return { success: true, book }
 }
 
-export async function unpublishBookAction(id: string) {
+export async function unpublishBookAction(token: string | null, id: string) {
+  await requireStoreUser(token, true)
   const book = await prisma.book.update({
     where: { id },
     data: { isPublished: false }
@@ -123,27 +130,28 @@ export async function unpublishBookAction(id: string) {
 
 // BookTopic actions
 
-export async function getTopics(bookId: string) {
+export async function getTopics(bookId: string, token: string | null = null) {
   return prisma.bookTopic.findMany({
-    where: { bookId, isPublished: true },
+    where: { book: await readableBookFilter(token), bookId, isPublished: true },
     orderBy: { orderIndex: 'asc' }
   })
 }
 
-export async function getAllTopics(bookId: string) {
+export async function getAllTopics(bookId: string, token: string | null = null) {
   return prisma.bookTopic.findMany({
-    where: { bookId, OR: [{ builderPath: null }, { isPublished: true }] },
+    where: { book: await readableBookFilter(token), bookId, OR: [{ builderPath: null }, { isPublished: true }] },
     orderBy: { orderIndex: 'asc' }
   })
 }
 
-export async function getTopic(id: string) {
+export async function getTopic(id: string, token: string | null = null) {
   return prisma.bookTopic.findFirst({
-    where: { id, OR: [{ builderPath: null }, { isPublished: true }] }
+    where: { book: await readableBookFilter(token), id, OR: [{ builderPath: null }, { isPublished: true }] }
   })
 }
 
-export async function createTopicAction(data: z.infer<typeof bookTopicSchema>) {
+export async function createTopicAction(token: string | null, data: z.infer<typeof bookTopicSchema>) {
+  await requireStoreUser(token, true)
   const parsed = bookTopicSchema.safeParse(data)
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message || 'Invalid input' }
@@ -165,7 +173,8 @@ export async function createTopicAction(data: z.infer<typeof bookTopicSchema>) {
   return { success: true, topic }
 }
 
-export async function updateTopicAction(id: string, data: Partial<z.infer<typeof bookTopicSchema>>) {
+export async function updateTopicAction(token: string | null, id: string, data: Partial<z.infer<typeof bookTopicSchema>>) {
+  await requireStoreUser(token, true)
   const topic = await prisma.bookTopic.update({
     where: { id },
     data
@@ -174,7 +183,8 @@ export async function updateTopicAction(id: string, data: Partial<z.infer<typeof
   return { success: true, topic }
 }
 
-export async function deleteTopicAction(id: string) {
+export async function deleteTopicAction(token: string | null, id: string) {
+  await requireStoreUser(token, true)
   const topic = await prisma.bookTopic.findUnique({
     where: { id }
   })

@@ -69,7 +69,7 @@ import {
   createBookAction,
   updateBookAction,
   deleteBookAction,
-  getAllTopics,
+  getBook,
   createTopicAction,
   updateTopicAction,
   deleteTopicAction,
@@ -413,6 +413,7 @@ interface AppContextValue {
   activeTopicId: string;
   activeReaderTab: string;
   setActiveReaderTab: (tabKey: string) => void;
+  refreshBookAccess: () => Promise<void>;
   applyPublishedBook: (book: Parameters<typeof toBook>[0], topics: Parameters<typeof toBookTopic>[0][]) => void;
   openBookReader: (bookId: string, topicId?: string, tabKey?: string) => void;
   activeLabModel: Exclude<Model3DKey, "">;
@@ -673,14 +674,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getCurriculums().catch(() => []),
         getSubjects().catch(() => []),
         getSyllabi().catch(() => []),
-        getAllBooks().catch(() => []),
-        getAllQuestions().catch(() => []),
+        getAllBooks(getSessionToken()).catch(() => []),
+        getAllQuestions(getSessionToken()).catch(() => []),
         getAllSubscriptionPlans().catch(() => []),
         getAiModelConfigs().catch(() => null),
         getCustomAiModels().catch(() => []),
       ]);
       // Load topics for each book
-      const topicsData = (await Promise.all(booksData.map(b => getAllTopics(b.id).catch(() => [])))).flat();
+      const topicsData = booksData.flatMap(book => book.topics);
 
       setCurriculums(curriculumsData.map(toCurriculum));
       setSubjects(subjectsData.map(toSubject));
@@ -1043,6 +1044,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     removeSessionToken();
     setUser(null);
+    setBooks([]);
+    setTopics([]);
+    setAnnotations([]);
+    setReadingProgress([]);
     setUserProfile(DEFAULT_PROFILE);
     setIsCloudSynced(false);
     setActivePanel("learner");
@@ -1051,13 +1056,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     notify("Signed out successfully.", "info");
   };
 
-  const openBookReader = (bookId: string, topicId?: string, tabKey: string = "reading") => {
+  const refreshBookAccess = async () => {
+    const token = getSessionToken();
+    const [catalog, availableQuestions] = await Promise.all([getAllBooks(token), getAllQuestions(token)]);
+    if (token !== getSessionToken()) return;
+    setBooks(catalog.map(toBook));
+    setTopics(catalog.flatMap(book => book.topics.map(toBookTopic)));
+    setQuestions(availableQuestions.map(toQuestion));
+  };
+
+  const openBookReader = async (bookId: string, topicId?: string, tabKey: string = "reading") => {
+    const token = getSessionToken();
+    let matchingTopics = topics.filter(topic => topic.bookId === bookId);
+    if (token) {
+      try {
+        const book = await getBook(bookId, token);
+        if (token !== getSessionToken()) return;
+        if (!book) {
+          await refreshBookAccess();
+          notify("This book is unavailable in your library.", "error");
+          return;
+        }
+        matchingTopics = book.topics.map(toBookTopic);
+        setBooks(items => items.some(item => item.id === bookId)
+          ? items.map(item => item.id === bookId ? toBook(book) : item) : [...items, toBook(book)]);
+        setTopics(items => [...items.filter(item => item.bookId !== bookId), ...matchingTopics]);
+      } catch {
+        notify("Could not open the book.", "error");
+        return;
+      }
+    }
+    const ordered = [...matchingTopics].sort((a, b) => a.orderIndex - b.orderIndex);
     setActiveBookId(bookId);
-    const matchingTopics = topics
-      .filter((t) => t.bookId === bookId)
-      .sort((a, b) => a.orderIndex - b.orderIndex);
-    const chosenTopic = topicId || matchingTopics[0]?.id || "";
-    setActiveTopicId(chosenTopic);
+    setActiveTopicId(ordered.find(topic => topic.id === topicId)?.id ?? ordered[0]?.id ?? "");
     setActiveReaderTab(tabKey);
     setActivePanel("learner");
     setLearnerRoute("reader");
@@ -1557,9 +1588,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const existing = books.find((b) => b.id === id);
         if (existing) {
-          await updateBookAction(id, normalized);
+          await updateBookAction(getSessionToken(), id, normalized);
         } else {
-          await createBookAction(normalized);
+          await createBookAction(getSessionToken(), normalized);
         }
       } catch (err) {
         console.error("Failed to save book:", err);
@@ -1576,7 +1607,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteBook = async (bookId: string) => {
     if (user && isAdmin) {
       try {
-        await deleteBookAction(bookId);
+        await deleteBookAction(getSessionToken(), bookId);
       } catch (err) {
         console.error("Failed to delete book:", err);
       }
@@ -1603,7 +1634,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (user && isAdmin) {
       try {
         for (const t of normalized) {
-          await createTopicAction(t);
+          await createTopicAction(getSessionToken(), t);
         }
       } catch (err) {
         console.error("Failed to save topics batch:", err);
@@ -1629,9 +1660,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const existing = topics.find((t) => t.id === id);
         if (existing) {
-          await updateTopicAction(id, normalized);
+          await updateTopicAction(getSessionToken(), id, normalized);
         } else {
-          await createTopicAction(normalized);
+          await createTopicAction(getSessionToken(), normalized);
         }
       } catch (err) {
         console.error("Failed to save topic:", err);
@@ -1652,7 +1683,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteTopic = async (topicId: string) => {
     if (user && isAdmin) {
       try {
-        await deleteTopicAction(topicId);
+        await deleteTopicAction(getSessionToken(), topicId);
       } catch (err) {
         console.error("Failed to delete topic:", err);
       }
@@ -1698,7 +1729,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         for (const q of normalized) {
           const optionsStr = Array.isArray(q.options) ? JSON.stringify(q.options) : q.options;
-          await createQuestionAction({ ...q, options: optionsStr });
+          await createQuestionAction(getSessionToken(), { ...q, options: optionsStr });
         }
       } catch (err) {
         console.error("Failed to save questions batch:", err);
@@ -1711,7 +1742,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteQuestion = async (questionId: string) => {
     if (user && isAdmin) {
       try {
-        await deleteQuestionAction(questionId);
+        await deleteQuestionAction(getSessionToken(), questionId);
       } catch (err) {
         console.error("Failed to delete question:", err);
       }
@@ -1954,6 +1985,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         activeTopicId,
         activeReaderTab,
         setActiveReaderTab,
+        refreshBookAccess,
         applyPublishedBook: (book, nextTopics) => {
           setBooks(items => [toBook(book), ...items.filter(item => item.id !== book.id)]);
           setTopics(items => [...items.filter(item => item.bookId !== book.id), ...nextTopics.map(toBookTopic)]);

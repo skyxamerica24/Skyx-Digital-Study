@@ -10,6 +10,7 @@ export default function MembershipView() {
     subscriptionPlans,
     subscriptions,
     selectSubscriptionPlan,
+    setLearnerRoute,
   } = useApp();
 
   const activePlan =
@@ -135,8 +136,8 @@ export default function MembershipView() {
               </div>
 
               <button
-                onClick={() => selectSubscriptionPlan(plan)}
-                disabled={isCurrent}
+                onClick={() => plan.priceMonthly > 0 ? setLearnerRoute("library") : selectSubscriptionPlan(plan)}
+                disabled={isCurrent && plan.priceMonthly === 0}
                 className={`mt-4 sm:mt-6 w-full py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl text-[11px] sm:text-xs font-semibold transition-all cursor-pointer ${
                   isCurrent
                     ? "bg-slate-100 text-slate-500 cursor-default"
@@ -145,7 +146,7 @@ export default function MembershipView() {
                       : "bg-slate-900 hover:bg-slate-800 text-white"
                 }`}
               >
-                {isCurrent ? "Current Plan" : `Choose ${plan.name.split(" ")[0]}`}
+                {plan.priceMonthly > 0 ? "View in Marketplace" : isCurrent ? "Current Plan" : `Choose ${plan.name.split(" ")[0]}`}
               </button>
             </div>
           );

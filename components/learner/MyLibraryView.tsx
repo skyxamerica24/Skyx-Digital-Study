@@ -59,7 +59,7 @@ export default function MyLibraryView() {
     });
   }, [books, topics, readingProgress]);
 
-  const inProgressBooks = bookStats.filter((s) => s.started && !s.finished);
+  const inProgressBooks = bookStats.filter((s) => !s.finished);
   const completedBooks = bookStats.filter((s) => s.finished);
   const bookmarks = useMemo(
     () => annotations.filter((a) => a.type === "bookmark" || a.type === "keypoint"),

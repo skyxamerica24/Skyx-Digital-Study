@@ -18,6 +18,7 @@ import MembershipView from "@/components/learner/MembershipView";
 import SettingsHubView from "@/components/settings/SettingsHubView";
 import GlobalSearchModal from "@/components/search/GlobalSearchModal";
 
+const BookMarketplace = dynamic(() => import("@/components/store/BookMarketplace"), { ssr: false });
 const BookReaderWorkspace = dynamic(() => import("@/components/reader/BookReaderWorkspace"), { ssr: false });
 const ThreeDiagramLab = dynamic(() => import("@/components/lab/ThreeDiagramLab"), { ssr: false });
 const AdminWorkspace = dynamic(() => import("@/components/admin/AdminWorkspace"), { ssr: false });
@@ -70,7 +71,7 @@ function SkyxAcademyRouter() {
           ) : learnerRoute === "dashboard" ? (
             <LearnerDashboard />
           ) : learnerRoute === "library" ? (
-            <BookLibraryView />
+            <><BookMarketplace /><BookLibraryView /></>
           ) : learnerRoute === "my-library" ? (
             <MyLibraryView />
           ) : learnerRoute === "lab3d" ? (

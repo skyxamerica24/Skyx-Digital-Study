@@ -45,3 +45,11 @@ tesseract --list-langs
 ```
 
 The language list should include both ben and eng. Alternative installations can set TESSDATA_PREFIX to a directory containing both models. Four Bengali reader font families ship under public/fonts with their respective licenses. Smart Reader's manual clip selection uses the digital layout extractor. Use Extract Studio for OCR.
+
+## Book Library marketplace
+
+Apply the updated PostgreSQL schema and regenerate the Prisma client before running the marketplace. In **Admin → Books → Digital Products**, select a published book and configure its listing. A listing can offer a free claim, a BDT purchase price, inclusion in one published subscription plan, or a combination. Newly published books from Build Manually start with an unlisted product.
+
+Set `SKYX_STORE_PAYMENT_INSTRUCTIONS` to the payment directions customers should see. Customers submit a transaction reference, then an administrator independently verifies the received payment and approves or rejects it in **Sales and Payment Review**. Purchase approval adds a lasting license. Subscription approval grants 30 days and adds that time to any remaining period for the same plan. Checkout uses manual review. Automatic payment collection and recurring billing require a payment provider integration.
+
+At the server, Book Library, Reader and catalog search use the learner's own access. My Library includes entitled titles. Notes, highlights and progress stay in the learner's account after subscription access ends.

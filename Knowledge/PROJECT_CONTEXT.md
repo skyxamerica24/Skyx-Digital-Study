@@ -71,3 +71,7 @@ VPS মোডে মূল ফাইলের হ্যাশ দিয়ে ড�
 Admin → Books → Build Manually creates revisioned drafts with nested sections and Markdown. Save Draft establishes the first revision, and later edits to an existing draft autosave after a short pause. Publish writes visible sections to the catalog in a single PostgreSQL transaction. Published sections use stable topic IDs, and the Reader and Global Search use the same IDs to open the exact section. Existing topics retain their IDs. A hidden parent also hides its descendants. Drafts are available to administrators.
 
 PostgreSQL verification covered a four-level Bangla outline, draft reload, Bengali breadcrumb lookup, publication isolation, stale revisions, hidden sections and cycle rejection. TypeScript verification passed. Browser verification remains open.
+
+## Book Library marketplace
+
+The Digital Products panel under Admin Books manages free claims, one-time prices, plan inclusion and manual payment review. Book licenses store free and purchased access by learner. Approved subscription orders record access expiration. The listing, order, and license records are separate from the original book and personal study records. Order references are unique, and repeated approvals and claims are safe to retry. See the README for payment setup.

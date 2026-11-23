@@ -109,6 +109,8 @@ model Book {
   updatedAt     DateTime  @updatedAt
 
   curriculum    Curriculum? @relation(fields: [curriculumId], references: [id])
+  listing       BookListing?
+  licenses      BookLicense[]
   topics        BookTopic[]
   studyTabs     TopicStudyTab[]
   questions     Question[]
@@ -335,6 +337,7 @@ model SubscriptionPlan {
   createdAt     DateTime  @default(now())
 
   subscriptionRecords SubscriptionRecord[]
+  bookListings BookListing[]
 
   @@index([isPublished])
   @@index([orderIndex])
@@ -533,4 +536,44 @@ model ManualBookDraft {
   revision    Int      @default(1)
   publishedRevision Int?
   updatedAt   DateTime @updatedAt
+}
+
+model BookListing {
+  bookId       String @id
+  book         Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  enabled      Boolean @default(false)
+  free         Boolean @default(false)
+  priceMinor   Int?
+  currency     String @default("BDT")
+  planId       String?
+  plan         SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+}
+
+model BookLicense {
+  userId     String
+  bookId     String
+  book       Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  acquiredAt DateTime @default(now())
+
+  @@id([userId, bookId])
+}
+
+model StoreOrder {
+  id          String @id @default(uuid())
+  userId      String
+  bookId      String?
+  planId      String?
+  kind        String
+  title       String
+  priceMinor  Int
+  currency    String
+  reference   String @unique
+  status      String @default("pending")
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  expiresAt   DateTime?
+
+  @@index([userId, status])
+  @@index([userId, planId, expiresAt])
 }

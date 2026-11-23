@@ -2,6 +2,8 @@
 
 import { z } from 'zod'
 import { prisma } from '../db'
+import { readableBookFilter, requireStoreUser } from '../book-store-access'
+import { getCurrentUser } from '../db/user'
 
 const questionSchema = z.object({
   bookId: z.string().min(1, 'Book ID is required'),
@@ -17,38 +19,25 @@ const questionSchema = z.object({
 
 // Question actions
 
-export async function getQuestions(bookId?: string) {
-  if (bookId) {
-    return prisma.question.findMany({
-      where: { bookId, isPublished: true },
-      orderBy: { createdAt: 'desc' }
-    })
-  }
+export async function getQuestions(bookId?: string, token: string | null = null) {
   return prisma.question.findMany({
-    where: { isPublished: true },
-    orderBy: { createdAt: 'desc' }
+    where: { bookId, isPublished: true, book: await readableBookFilter(token) },
+    orderBy: { createdAt: 'desc' },
   })
 }
 
-export async function getAllQuestions(bookId?: string) {
-  if (bookId) {
-    return prisma.question.findMany({
-      where: { bookId },
-      orderBy: { createdAt: 'desc' }
-    })
-  }
-  return prisma.question.findMany({
-    orderBy: { createdAt: 'desc' }
-  })
+export async function getAllQuestions(token: string | null = null, bookId?: string) {
+  if ((await getCurrentUser(token))?.role !== 'admin') return getQuestions(bookId, token)
+  return prisma.question.findMany({ where: { bookId }, orderBy: { createdAt: 'desc' } })
 }
 
-export async function getQuestion(id: string) {
-  return prisma.question.findUnique({
-    where: { id }
-  })
+export async function getQuestion(id: string, token: string | null = null) {
+  if ((await getCurrentUser(token))?.role === 'admin') return prisma.question.findUnique({ where: { id } })
+  return prisma.question.findFirst({ where: { id, isPublished: true, book: await readableBookFilter(token) } })
 }
 
-export async function createQuestionAction(data: z.infer<typeof questionSchema>) {
+export async function createQuestionAction(token: string | null, data: z.infer<typeof questionSchema>) {
+  await requireStoreUser(token, true)
   const parsed = questionSchema.safeParse(data)
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message || 'Invalid input' }
@@ -61,7 +50,8 @@ export async function createQuestionAction(data: z.infer<typeof questionSchema>)
   return { success: true, question }
 }
 
-export async function updateQuestionAction(id: string, data: Partial<z.infer<typeof questionSchema>>) {
+export async function updateQuestionAction(token: string | null, id: string, data: Partial<z.infer<typeof questionSchema>>) {
+  await requireStoreUser(token, true)
   const question = await prisma.question.update({
     where: { id },
     data
@@ -70,7 +60,8 @@ export async function updateQuestionAction(id: string, data: Partial<z.infer<typ
   return { success: true, question }
 }
 
-export async function deleteQuestionAction(id: string) {
+export async function deleteQuestionAction(token: string | null, id: string) {
+  await requireStoreUser(token, true)
   await prisma.question.delete({
     where: { id }
   })

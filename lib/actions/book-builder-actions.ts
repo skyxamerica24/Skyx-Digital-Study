@@ -45,7 +45,7 @@ export async function saveBookDraft(token: string | null, id: string | null, rev
     const values = { ...metadata, isPublished: true, totalTopics: published.length };
     const book = await tx.book.upsert({
       where: { id: draft.id },
-      create: { id: draft.id, ...values },
+      create: { id: draft.id, ...values, listing: { create: {} } },
       update: values,
     });
     await tx.bookTopic.updateMany({
