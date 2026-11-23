@@ -1,6 +1,6 @@
 import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { BookPageRecord, SkyxBookProject } from "./types";
 
@@ -23,12 +23,12 @@ export async function readPdfImport(ownerId: string, id: string) {
   };
 }
 
-export async function savePdfImport(ownerId: string, project: SkyxBookProject, bytes: Buffer, forceOcr = false) {
+export async function savePdfImport(ownerId: string, project: SkyxBookProject, bytes: Buffer, forceOcr = false, fileName = project.extraction.fileName) {
   const base = process.env.SKYX_VPS_STORAGE_DIR?.trim();
   if (!base) throw new Error("Missing SKYX_VPS_STORAGE_DIR");
-  const { sha256, fileName } = project.extraction;
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
   if (!/^[0-9a-f]{64}$/.test(sha256)) throw new Error("Invalid PDF digest");
-  const sourcePath = path.join("originals", sha256.slice(0, 2), sha256 + ".pdf");
+  const sourcePath = path.join("originals", sha256.slice(0, 2), sha256 + (fileName.toLowerCase().endsWith(".pdf") ? ".pdf" : ".bin"));
   const finalPath = path.resolve(base, sourcePath);
   await mkdir(path.dirname(finalPath), { recursive: true, mode: 0o750 });
   const tmp = finalPath + "." + randomUUID() + ".tmp";

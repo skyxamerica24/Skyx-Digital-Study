@@ -67,6 +67,7 @@ interface SmartDocumentReaderProps {
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
   onSwitchToStudio: () => void;
+  onOpenFileManager: () => void;
   onSaveProject: () => void;
   onSelectDoc: (docId: string) => void;
   onAddFile: (file: File) => Promise<void>;
@@ -101,6 +102,7 @@ export default function SmartDocumentReader({
   sidebarCollapsed,
   onToggleSidebar,
   onSwitchToStudio,
+  onOpenFileManager,
   onSaveProject,
   onSelectDoc,
   onAddFile,
@@ -1322,6 +1324,7 @@ export default function SmartDocumentReader({
               run: () => fileInputRef.current?.click(),
               disabled: uploadingFile,
             },
+            { label: "File Manager", icon: BookOpen, run: () => { setFocusMode(false); onOpenFileManager(); } },
             { label: "Extract Studio", icon: Layers, run: onSwitchToStudio },
             { label: "Books", icon: BookOpen, run: () => openDock("books") },
             { label: "Clips", icon: Scissors, run: () => openDock("pages") },

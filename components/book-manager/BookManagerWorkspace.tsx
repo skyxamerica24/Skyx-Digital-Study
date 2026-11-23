@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getSessionToken } from "@/lib/auth/session-storage";
+import { listLocalBooks, openLocalBook, storeLocalBook, type ShelfItem } from "@/lib/book-engine/local-shelf";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
@@ -209,7 +210,7 @@ function createSampleBookProject(): SkyxBookProject {
 }
 
 export default function BookManagerWorkspace() {
-  const { notify, sidebarCollapsed, setSidebarCollapsed } = useApp();
+  const { user, notify, sidebarCollapsed, setSidebarCollapsed } = useApp();
 
   // Default Mode = Smart Reader (Mode 1), Extract Studio (Mode 2)
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("reader");
@@ -226,37 +227,106 @@ export default function BookManagerWorkspace() {
   const [activeTab, setActiveTab] = useState<StudioTab>("ingest");
   const [forceOcr, setForceOcr] = useState(false);
   const [extracting, setExtracting] = useState(false);
-  const [savedPdfs, setSavedPdfs] = useState<{ id: string; fileName: string }[]>([]);
+  const [shelfItems, setShelfItems] = useState<ShelfItem[]>([]);
+  const [shelfOpen, setShelfOpen] = useState(false);
+  const [shelfQuery, setShelfQuery] = useState("");
+  const [localShelf, setLocalShelf] = useState(false);
   const [archiveMessage, setArchiveMessage] = useState("");
-  const loadArchive = async (id?: string) => {
-    setExtracting(true);
+  const account = user?.uid || "guest";
+  const shelfInput = useRef<HTMLInputElement>(null);
+  const authHeaders = () => ({ Authorization: "Bearer " + (getSessionToken() || "") });
+
+  async function refreshShelf() {
+    const res = await fetch("/api/book-engine/imports", {headers: authHeaders(), cache:"no-store"});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not load files.");
+    setLocalShelf(!data.enabled);
+    setShelfItems(data.enabled ? data.items : await listLocalBooks(account));
+    return Boolean(data.enabled);
+  }
+
+  async function showShelf() {
+    setShelfOpen(true);
     setArchiveMessage("");
+    setShelfItems([]);
+    try { await refreshShelf(); }
+    catch (error) { setArchiveMessage(error instanceof Error ? error.message : "Could not load books."); }
+  }
+
+  async function uploadBook(file: File, ocr = false, refresh = shelfOpen) {
+    const form = new FormData();
+    form.append("file", file);
+    if (ocr) form.append("ocr", "force");
+    const res = await fetch("/api/book-engine/extract", {method:"POST", headers:authHeaders(), body:form});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not import book.");
+    const imported: SkyxBookProject = data.project;
+    if (!data.archived) await storeLocalBook(account, imported, file);
+    if (refresh) await refreshShelf();
+    return imported;
+  }
+
+  function readBook(id: string, book: SkyxBookProject, bytes?: Uint8Array, edition = false) {
+    const pages = book.pages.filter(p => p.status !== "skipped");
+    // Include chapter-editor content as well as the edited page transcript.
+    const chapterPages = edition ? book.chapters.filter(c => c.contentMarkdown.trim()).map(c => ({
+      id:c.id, pageNumber:0, rawText:c.contentMarkdown, cleanedText:c.title + "\n\n" + c.contentMarkdown,
+      wordCount:0, charCount:c.contentMarkdown.length, isLikelyScanned:false, status:"reviewed" as const, chapterId:c.id,tags:[]
+    })) : [];
+    const textPages = [...pages,...chapterPages].map((p,i)=>({...p,pageNumber:i+1}));
+    const doc: ReaderDocumentItem = {id,title:book.title,fileName:book.extraction.fileName,
+      format:bytes ? "pdf" : book.extraction.format === "pdf" ? "md" : book.extraction.format,
+      fileSizeBytes:book.extraction.fileSizeBytes,totalPages: Math.max(1,bytes ? book.pages.length : textPages.length),
+      currentPage:1,bookmarks:[],addedAt:new Date().toISOString(),pdfBytes:bytes,textPages,linkedProject:book};
+    setReaderDocs(prev=>[doc,...prev.filter(d=>d.id!==id)]);
+    setActiveReaderDocId(id);
+    setWorkspaceMode("reader");
+  }
+
+  async function openShelfBook(item: ShelfItem, mode: WorkspaceMode) {
+    setExtracting(true);
     try {
-      const res = await fetch("/api/book-engine/imports" + (id ? "?id=" + encodeURIComponent(id) : ""), {
-        headers: { Authorization: "Bearer " + (getSessionToken() || "") },
-        cache: "no-store",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      if (id) {
-        const restored: SkyxBookProject = data.project;
-        setProject(restored);
-        setSelectedPageId(restored.pages[0]?.id ?? null);
-        setPageSliceIndex(0);
-        setPageSearch("");
-        setPageFilter("all");
-        setActiveTab("pages");
-      } else {
-        setSavedPdfs(data.items);
-        if (!data.enabled) setArchiveMessage("PDF archiving is available in VPS storage mode.");
-        else if (!data.items.length) setArchiveMessage("No saved PDF imports yet.");
+      const url="/api/book-engine/imports?id="+encodeURIComponent(item.id);
+      let book: SkyxBookProject;
+      if (localShelf) book = await openLocalBook(account,item.id) as SkyxBookProject;
+      else {
+        const res=await fetch(url,{headers:authHeaders(),cache:"no-store"});
+        const data=await res.json();
+        if (!res.ok) throw new Error(data.error);
+        book=data.project;
       }
-    } catch (error) {
-      setArchiveMessage(error instanceof Error ? error.message : "Could not open the archive.");
-    } finally {
-      setExtracting(false);
-    }
-  };
+      if (mode === "reader") {
+        let bytes: Uint8Array | undefined;
+        if (!item.edited && item.fileName.toLowerCase().endsWith(".pdf")) {
+          if (localShelf) bytes=new Uint8Array(await (await openLocalBook(account,item.id,true) as Blob).arrayBuffer());
+          else {
+            const res=await fetch(url+"&source=1",{headers:authHeaders()});
+            if (!res.ok) throw new Error("Could not open original PDF.");
+            bytes=new Uint8Array(await res.arrayBuffer());
+          }
+        }
+        readBook(item.id,book,bytes,item.edited);
+      } else {
+        setWorkspaceMode("studio"); setProject(book); setSelectedPageId(book.pages[0]?.id ?? null);
+        setPageSliceIndex(0); setPageSearch(""); setPageFilter("all"); setActiveTab("pages");
+      }
+      setShelfOpen(false);
+    } catch(error) {setArchiveMessage(error instanceof Error ? error.message : "Could not open book.");}
+    finally {setExtracting(false);}
+  }
+
+  async function saveEdition() {
+    if (!project) return;
+    setExtracting(true);
+    try {
+      if (await refreshShelf()) {
+        const res=await fetch("/api/book-engine/imports",{method:"POST",headers:{...authHeaders(),"Content-Type":"application/json"},body:JSON.stringify(project)});
+        if (!res.ok) throw new Error((await res.json()).error);
+      } else await storeLocalBook(account,project);
+      await refreshShelf(); setShelfOpen(true); setArchiveMessage("সম্পাদিত কপি সেভ হয়েছে।");
+    } catch(error) {notify(error instanceof Error ? error.message : "Save failed.","error");}
+    finally {setExtracting(false);}
+  }
   const [dragActive, setDragActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -293,68 +363,10 @@ export default function BookManagerWorkspace() {
   const handleAddBookToReader = async (file: File) => {
     setReaderUploading(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-      const baseTitle = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
-
-      if (ext === "pdf") {
-        // Pure client-side zero-wait PDF open (handles 300+ pages without uploading to server!)
-        const arrayBuf = await file.arrayBuffer();
-        const pdfBytes = new Uint8Array(arrayBuf);
-        const newDoc: ReaderDocumentItem = {
-          id: `rdoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          title: baseTitle || file.name,
-          fileName: file.name,
-          format: "pdf",
-          fileSizeBytes: file.size,
-          totalPages: 1, // Updated automatically as soon as PDF.js opens the header
-          currentPage: 1,
-          bookmarks: [],
-          addedAt: new Date().toISOString(),
-          pdfBytes,
-        };
-        setReaderDocs((prev) => [newDoc, ...prev]);
-        setActiveReaderDocId(newDoc.id);
-        notify(`Opened "${newDoc.title}" in Smart Reader.`, "success");
-        return;
-      }
-
-      // Non-PDF formats (EPUB, DOCX, MD, TXT, CSV, .skyxbook.json) parse cleanly via server extractor
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/book-engine/extract", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + (getSessionToken() || "") },
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Could not open this document.");
-      }
-
-      const extracted = data.project as SkyxBookProject;
-      const newDoc: ReaderDocumentItem = {
-        id: `rdoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        title: extracted.title,
-        fileName: extracted.extraction.fileName,
-        format: extracted.extraction.format,
-        fileSizeBytes: extracted.extraction.fileSizeBytes,
-        totalPages: Math.max(1, extracted.pages.length),
-        currentPage: 1,
-        bookmarks: [],
-        addedAt: new Date().toISOString(),
-        textPages: extracted.pages,
-        linkedProject: extracted,
-      };
-      setReaderDocs((prev) => [newDoc, ...prev]);
-      setActiveReaderDocId(newDoc.id);
-      if (!project) {
-        setProject(extracted);
-        setSelectedPageId(extracted.pages[0]?.id ?? null);
-      }
-      notify(
-        `Opened "${newDoc.title}" (${newDoc.totalPages} pages) in Smart Reader.`,
-        "success"
-      );
+      const imported = await uploadBook(file);
+      const bytes = file.name.toLowerCase().endsWith(".pdf") ? new Uint8Array(await file.arrayBuffer()) : undefined;
+      readBook(imported.id, imported, bytes);
+      notify("বইটি ফাইল ম্যানেজারে সেভ হয়েছে।", "success");
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Failed to open document in Reader.";
@@ -447,22 +459,7 @@ export default function BookManagerWorkspace() {
     setErrorMsg(null);
     setExtracting(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      if (forceOcr) formData.append("ocr", "force");
-
-      const res = await fetch("/api/book-engine/extract", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + (getSessionToken() || "") },
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || "Document extraction failed.");
-      }
-
-      const extracted = data.project as SkyxBookProject;
+      const extracted = await uploadBook(file, forceOcr);
       setProject(extracted);
       setSelectedPageId(extracted.pages[0]?.id ?? null);
       setPageSliceIndex(0);
@@ -470,7 +467,7 @@ export default function BookManagerWorkspace() {
       setPageFilter("all");
       setActiveTab("pages");
       notify(
-        `${data.archived ? "Saved PDF and extracted pages for" : "Extracted"} "${extracted.title}" (${extracted.pages.length} pages · ${extracted.chapters.length} chapters)`,
+        `Saved to File Manager: "${extracted.title}" (${extracted.pages.length} pages · ${extracted.chapters.length} chapters)`,
         "success"
       );
     } catch (err: unknown) {
@@ -693,6 +690,41 @@ export default function BookManagerWorkspace() {
 
   return (
     <div className="space-y-3">
+      <div className="rounded-xl border bg-white p-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className="font-semibold text-indigo-700" aria-expanded={shelfOpen} onClick={() => shelfOpen ? setShelfOpen(false) : showShelf()}>বইয়ের ফাইল ম্যানেজার</button>
+          <button type="button" disabled={extracting || readerUploading} onClick={()=>shelfInput.current?.click()}>বই আপলোড</button>
+          {workspaceMode === "studio" && project && <button type="button" disabled={extracting} onClick={saveEdition}>সম্পাদিত কপি সেভ করুন</button>}
+          <input hidden ref={shelfInput} type="file" multiple accept=".pdf,.epub,.docx,.csv,.md,.markdown,.txt,.json" onChange={async e=>{
+            const files=Array.from(e.target.files ?? []); e.target.value="";
+            if (!files.length) return;
+            setExtracting(true); setShelfOpen(true); setArchiveMessage("");
+            const failures: string[] = [];
+            try {
+              for (const file of files) {
+                try { await uploadBook(file, forceOcr, false); }
+                catch (error) { failures.push(file.name + " — " + (error instanceof Error ? error.message : "Upload failed")); }
+              }
+              await refreshShelf();
+              setArchiveMessage((files.length - failures.length) + "টি বই সেভ হয়েছে। " + failures.join(" · "));
+            } catch (error) { setArchiveMessage(error instanceof Error ? error.message : "Could not refresh files."); }
+            finally { setExtracting(false); }
+          }}/>
+        </div>
+        {shelfOpen && <div className="mt-3 space-y-2">
+          <label>বই খুঁজুন <input className="rounded border px-2 py-1" value={shelfQuery} onChange={e=>setShelfQuery(e.target.value)} /></label>
+          <p className="text-xs text-slate-600">{localShelf ? "এই ব্রাউজারে সংরক্ষিত বই" : "অ্যাকাউন্টের বই"}</p>
+          {archiveMessage && <p role="status">{archiveMessage}</p>}
+          <div className="max-h-72 overflow-y-auto">
+          {shelfItems.filter(i=>i.fileName.toLocaleLowerCase().includes(shelfQuery.toLocaleLowerCase())).map(i=><div key={i.id} className="flex items-center gap-3 border-t py-2">
+            <span className="min-w-0 flex-1 break-words">{i.fileName}{i.edited && " · সম্পাদিত"}{i.edited && i.createdAt && <small className="block">{new Date(i.createdAt).toLocaleString("bn-BD")}</small>}</span>
+            <button disabled={extracting} onClick={()=>openShelfBook(i,"reader")}>পড়ুন</button>
+            <button disabled={extracting} onClick={()=>openShelfBook(i,"studio")}>সম্পাদনা</button>
+          </div>)}
+          {!shelfItems.length && !archiveMessage && <p>তালিকায় কোনো বই নেই।</p>}
+          </div>
+        </div>}
+      </div>
       {workspaceMode === "studio" && (
         <div className="flex items-center justify-between gap-2.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 overflow-x-auto no-scrollbar">
           {/* Left: Primary Dual-Mode Switcher (Smart Reader First, Extract Studio Second) */}
@@ -809,7 +841,15 @@ export default function BookManagerWorkspace() {
           onSetRightPanelOpen={setRightReaderPanelOpen}
           sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
-          onSwitchToStudio={() => setWorkspaceMode("studio")}
+          onSwitchToStudio={() => {
+            const book = activeReaderDoc?.linkedProject;
+            if (book && book.id !== project?.id) {
+              setProject(book); setSelectedPageId(book.pages[0]?.id ?? null);
+              setPageSliceIndex(0); setPageSearch(""); setPageFilter("all"); setActiveTab("pages");
+            }
+            setWorkspaceMode("studio");
+          }}
+          onOpenFileManager={showShelf}
           onSaveProject={handleExportSkyxBook}
           onSelectDoc={setActiveReaderDocId}
           onAddFile={handleAddBookToReader}
@@ -949,14 +989,6 @@ export default function BookManagerWorkspace() {
                 <label className="mt-3 block text-sm">
                   <input type="checkbox" checked={forceOcr} onChange={e => setForceOcr(e.target.checked)} /> বাংলা লেখা বিকৃত হলে PDF-এর সব পৃষ্ঠায় OCR চালান
                 </label>
-                <button type="button" disabled={extracting} className="mt-3 text-sm text-indigo-700 underline" onClick={() => loadArchive()}>
-                  Open saved PDF imports
-                </button>
-                {archiveMessage && <p role="status">{archiveMessage}</p>}
-                {savedPdfs.map(item => (
-                  <div key={item.id}><button type="button" disabled={extracting} onClick={() => loadArchive(item.id)} className="text-sm underline">{item.fileName}</button></div>
-                ))}
-
                 {/* Clean Unboxed Supported Engine Strip */}
                 <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] text-slate-500">
                   {SUPPORTED_ENGINE_ITEMS.map((item) => {

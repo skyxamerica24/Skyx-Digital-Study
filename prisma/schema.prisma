@@ -512,3 +512,15 @@ model PdfImportPage {
 
   @@id([importId, pageNumber])
 }
+
+model BookEdition {
+  id        String @id @default(uuid())
+  ownerId   String
+  digest    String
+  title     String
+  snapshot  Bytes
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, digest])
+  @@index([ownerId, createdAt])
+}
