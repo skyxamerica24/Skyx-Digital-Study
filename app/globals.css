@@ -472,3 +472,21 @@
   background-color: #fef08a;
   color: #172554;
 }
+
+.skyx-pdf-textlayer ::highlight(skyx-read-along) {
+  color: transparent;
+  background-color: #fde04780;
+}
+.assistant-whiteboard-stroke {
+  stroke-dasharray: 1;
+  animation: assistant-draw-stroke 0.7s ease-out both;
+}
+
+@keyframes assistant-draw-stroke {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-whiteboard-stroke { animation: none; }
+}

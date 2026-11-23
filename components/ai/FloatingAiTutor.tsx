@@ -31,6 +31,12 @@ import {
 } from "lucide-react";
 import { arrayBufferToBase64, base64ToInt16Array, downsampleTo16k, float32ToInt16 } from "@/lib/reader-live/pcm";
 import { getSessionToken } from "@/lib/auth/session-storage";
+import AssistantDock from "./AssistantDock";
+import AssistantStage, { findReadingBlock, type AssistantVisual } from "./AssistantStage";
+import { saveAssistantArtifact, reviseAssistantDiagram } from "@/lib/actions/assistant-artifact-actions";
+import { referenceImages } from "@/lib/assistant/reference-images";
+import { artifactEntry, type ArtifactEntry, type ArtifactPayload } from "@/lib/assistant/artifacts";
+import { getAssistantPdf, navigateAssistantPdf } from "@/lib/assistant/pdf-session";
 import { clientActionSchema } from "@/lib/assistant/tools";
 import { useApp } from "@/components/context/AppContext";
 
@@ -122,7 +128,6 @@ export default function FloatingAiTutor() {
     setLearnerRoute,
     open3dLab,
     openBookReader,
-    addAnnotation,
     comfort,
     updateComfort,
     books,
@@ -137,16 +142,57 @@ export default function FloatingAiTutor() {
   } = useApp();
 
   type TopicContext = {bookId:string;topicId:string;bookTitle:string;topicTitle:string};
-  type Artifact = {title:string;text:string;context?:TopicContext};
-  const [artifact, setArtifact] = useState<Artifact | null>(null);
-  const [artifactOpen, setArtifactOpen] = useState(false);
-  const [artifactSaving, setArtifactSaving] = useState(false);
-  const runAction = useRef(async (_input: unknown, _context?: TopicContext) => false);
-  runAction.current = async (input, context) => {
+  const [latestArtifact,setLatestArtifact] = useState<ArtifactEntry | null>(null);
+  const [visual,setVisual] = useState<AssistantVisual | null>(null);
+  const closeVisual = useCallback(()=>setVisual(null),[]);
+  const [bubblePosition,setBubblePosition] = useState<{left:string;top:string}>();
+  async function publishArtifact(title:string,payload:ArtifactPayload) {
+    const result=await saveAssistantArtifact(getSessionToken(),title.slice(0,120),payload);
+    setLatestArtifact(result);
+    return true;
+  }
+  const runAction = useRef(async (_input: unknown, _context?: TopicContext, _references?: unknown) => false);
+  runAction.current = async (input, context, references) => {
     const result = clientActionSchema.safeParse(input);
     if (!result.success || document.hidden) return false;
     const action = result.data;
     switch (action.name) {
+      case "spotlight_element": {
+        const target = findReadingBlock(action.args.quote);
+        if (!target) return false;
+        setVisual({kind:"spotlight",target,zoom:action.args.zoom});
+        closeAiTutor();
+        return true;
+      }
+      case "show_concept_animation":
+        setVisual({kind:"steps",data:action.args});
+        closeAiTutor();
+        return true;
+      case "draw_whiteboard":
+        setVisual({kind:"board",data:action.args});
+        closeAiTutor();
+        return true;
+      case "go_to_page": {
+        if (!await navigateAssistantPdf(action.args.page)) return false;
+        const view = getAssistantPdf();
+        const frame = view?.capture("");
+        const ws = wsRef.current;
+        if (!frame || ws?.readyState !== WebSocket.OPEN) return false;
+        ws.send(JSON.stringify({type:"video",data:frame.data,mimeType:"image/jpeg"}));
+        return true;
+      }
+      case "find_reference_image": {
+        const parsed = referenceImages.safeParse(references);
+        if (!parsed.success || !parsed.data.length) return false;
+        return publishArtifact("Reference images: "+action.args.query,{kind:"references",images:parsed.data});
+      }
+      case "edit_custom_diagram": {
+        if (!latestArtifact || latestArtifact.payload.kind !== "diagram") return false;
+        setLatestArtifact(await reviseAssistantDiagram(getSessionToken(),latestArtifact.id,latestArtifact.revision,{kind:"diagram",spec:action.args.spec}));
+        return true;
+      }
+      case "build_custom_diagram":
+        return publishArtifact(action.args.title,{kind:"diagram",spec:action.args.spec});
       case "navigate_app":
         setActivePanel("learner");
         setLearnerRoute(action.args.destination);
@@ -170,14 +216,11 @@ export default function FloatingAiTutor() {
         closeAiTutor();
         return true;
       case "show_example_card":
-        setArtifact({title:action.args.title,text:action.args.text});
-        setArtifactOpen(true);
-        return true;
+        return publishArtifact(action.args.title,{kind:"example",text:action.args.text});
       case "make_structured_notes":
         if (!context || context.topicId !== action.args.topicId) return false;
-        setArtifact({title:action.args.title,text:action.args.points.map((point,i) => `${i+1}. ${point}`).join("\n"),context});
-        setArtifactOpen(true);
-        return true;
+        return publishArtifact(action.args.title,{kind:"notes",text:action.args.points.map((point,i)=>`${i+1}. ${point}`).join("\n"),context});
+
     }
   };
 
@@ -554,6 +597,7 @@ export default function FloatingAiTutor() {
   const isMutedRef = useRef(false);
   const upstreamReady = useRef(false);
   const startGeneration = useRef(0);
+  const retryTimer = useRef<number | undefined>(undefined);
   const wsRef = useRef<WebSocket | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const inputAudioCtxRef = useRef<AudioContext | null>(null);
@@ -614,7 +658,9 @@ export default function FloatingAiTutor() {
     startGeneration.current++;
     upstreamReady.current = false;
     stopScreenShare(true);
+    window.clearTimeout(retryTimer.current);
     try {
+      if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({type:"end"}));
       wsRef.current?.close();
     } catch {
       // ignore
@@ -668,6 +714,27 @@ export default function FloatingAiTutor() {
     document.addEventListener("visibilitychange",updateVisibility);
     return () => document.removeEventListener("visibilitychange",updateVisibility);
   }, []);
+
+  useEffect(() => {
+    if (liveStatus !== "listening" && liveStatus !== "speaking") return;
+    let previous = "";
+    let previousPage = "";
+    const interval = window.setInterval(() => {
+      const view = getAssistantPdf();
+      const ws = wsRef.current;
+      if (!view || document.hidden || !upstreamReady.current || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 128000) return;
+      const frame = view.capture(previous);
+      if (!frame) return;
+      const page = view.documentId + ":" + view.page;
+      if (page !== previousPage) {
+        ws.send(JSON.stringify({type:"context",pageContext:{pageTitle:view.title+" · PDF page "+view.page}}));
+        previousPage=page;
+      }
+      previous=frame.signature;
+      ws.send(JSON.stringify({type:"video",data:frame.data,mimeType:"image/jpeg"}));
+    },650);
+    return () => window.clearInterval(interval);
+  },[liveStatus]);
 
   // Automatically sync updated page context to active Live session when user navigates!
   useEffect(() => {
@@ -760,121 +827,138 @@ export default function FloatingAiTutor() {
       if (document.hidden) for (const track of stream.getAudioTracks()) track.enabled = false;
 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(`${protocol}//${window.location.host}/api/live-ws`);
-      wsRef.current = ws;
+      let resumeKey: string | undefined;
+      let retries = 0;
+      const connect = () => {
+        if (attempt !== startGeneration.current) return;
+        const ws = new WebSocket(`${protocol}//${window.location.host}/api/live-ws`);
+        wsRef.current = ws;
 
-      // Get the session token from localStorage for WebSocket auth
-      const sessionToken = typeof window !== "undefined" ? localStorage.getItem("skyx_session_token") : null;
+        // Get the session token from localStorage for WebSocket auth
+        const sessionToken = typeof window !== "undefined" ? localStorage.getItem("skyx_session_token") : null;
 
-      ws.onopen = () => {
-        ws.send(
-          JSON.stringify({
-            type: "init",
-            token: sessionToken,
-            mode: tutorMode,
-            model: selectedLiveModel,
-            voiceName,
-            secretSlot: liveSettings.secretSlot,
-            bookTitle: isFocusedReader ? activeBook?.title : undefined,
-            topicTitle: isFocusedReader ? activeTopic?.topicTitle : undefined,
-            topicExcerpt: isFocusedReader ? activeTopic?.contentMarkdown.slice(0, 2400) : undefined,
-            pageContext: buildPageContextPayload(),
-          })
-        );
-      };
+        ws.onopen = () => {
+          ws.send(
+            JSON.stringify({
+              type: "init",
+              token: sessionToken,
+              resumeKey,
+              mode: tutorMode,
+              model: selectedLiveModel,
+              voiceName,
+              secretSlot: liveSettings.secretSlot,
+              bookTitle: isFocusedReader ? activeBook?.title : undefined,
+              topicTitle: isFocusedReader ? activeTopic?.topicTitle : undefined,
+              topicExcerpt: isFocusedReader ? activeTopic?.contentMarkdown.slice(0, 2400) : undefined,
+              pageContext: buildPageContextPayload(),
+            })
+          );
+        };
 
-      ws.onmessage = (event) => {
-        if (wsRef.current !== ws) return;
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === "action" && typeof msg.id === "string") {
-            const reply = (ok: boolean) => {
-              if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:"actionResult",id:msg.id,ok}));
-            };
-            void runAction.current(msg.action,msg.topicContext).then(reply,() => reply(false));
-          } else if (msg.type === "reconnecting") {
-            upstreamReady.current = false;
-            setLiveStatus("connecting");
-          } else if (msg.type === "ready") {
-            upstreamReady.current = true;
-            setLiveStatus("listening");
-            if (msg.model) setActiveLiveModelUsed(msg.model);
-            // Store the conversation ID returned by the server
-            if (msg.conversationId) {
-              setLiveConversationId(msg.conversationId);
+        ws.onmessage = (event) => {
+          if (wsRef.current !== ws) return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "action" && typeof msg.id === "string") {
+              const reply = (ok: boolean) => {
+                if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:"actionResult",id:msg.id,ok}));
+              };
+              void runAction.current(msg.action,msg.topicContext,msg.referenceImages).then(reply,() => reply(false));
+            } else if (msg.type === "notesJobFinished") {
+              const entry = artifactEntry.safeParse(msg.entry);
+              if (entry.success) setLatestArtifact(entry.data);
+              else notify("Could not finish study notes.","error");
+            } else if (msg.type === "reconnecting") {
+              upstreamReady.current = false;
+              setLiveStatus("connecting");
+            } else if (msg.type === "ready") {
+              upstreamReady.current = true;
+              if (typeof msg.resumeKey === "string") resumeKey = msg.resumeKey;
+              retries = 0;
+              setLiveStatus("listening");
+              if (msg.model) setActiveLiveModelUsed(msg.model);
+              // Store the conversation ID returned by the server
+              if (msg.conversationId) {
+                setLiveConversationId(msg.conversationId);
+              }
+              if (inputAudioCtxRef.current) return;
+              const AudioCtx =
+                window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+              const inputCtx = new AudioCtx();
+              inputAudioCtxRef.current = inputCtx;
+              const source = inputCtx.createMediaStreamSource(stream);
+              const processor = inputCtx.createScriptProcessor(4096, 1, 1);
+              processorRef.current = processor;
+
+              processor.onaudioprocess = (e) => {
+                const current = wsRef.current;
+                if (document.hidden || !upstreamReady.current || isMutedRef.current || current?.readyState !== WebSocket.OPEN || current.bufferedAmount > 128000) return;
+                const raw = e.inputBuffer.getChannelData(0);
+                const downsampled = downsampleTo16k(raw, inputCtx.sampleRate);
+                const pcm16 = float32ToInt16(downsampled);
+                const b64 = arrayBufferToBase64(pcm16.buffer as ArrayBuffer);
+                current.send(JSON.stringify({ type: "audio", audio: b64 }));
+              };
+
+              source.connect(processor);
+              processor.connect(inputCtx.destination);
+            } else if (msg.type === "audio" && msg.data && !document.hidden) {
+              setLiveStatus("speaking");
+              enqueuePcm24kAudio(msg.data);
+            } else if (msg.type === "inputTranscript" && msg.text) {
+              setLiveTranscripts((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === "user") {
+                  return [...prev.slice(0, -1), { ...last, text: `${last.text}${msg.text}` }];
+                }
+                return [...prev, { id: nextId("lu"), role: "user", text: msg.text }];
+              });
+            } else if (msg.type === "outputTranscript" && msg.text) {
+              setLiveTranscripts((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.role === "model") {
+                  return [...prev.slice(0, -1), { ...last, text: `${last.text}${msg.text}` }];
+                }
+                return [...prev, { id: nextId("lm"), role: "model", text: msg.text }];
+              });
+            } else if (msg.type === "interrupted") {
+              activeSourcesRef.current.forEach((s) => {
+                try {
+                  s.stop();
+                } catch {
+                  // ignore
+                }
+              });
+              activeSourcesRef.current = [];
+              nextPlayTimeRef.current = 0;
+              setLiveStatus("listening");
+            } else if (msg.type === "error") {
+              stopLiveSession();
+              setLiveError(msg.message || "Live session error.");
+              setLiveStatus("error");
+            } else if (msg.type === "closed") {
+              setLiveStatus("idle");
             }
-            if (inputAudioCtxRef.current) return;
-            const AudioCtx =
-              window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-            const inputCtx = new AudioCtx();
-            inputAudioCtxRef.current = inputCtx;
-            const source = inputCtx.createMediaStreamSource(stream);
-            const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-            processorRef.current = processor;
-
-            processor.onaudioprocess = (e) => {
-              if (document.hidden || !upstreamReady.current || isMutedRef.current || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 128000) return;
-              const raw = e.inputBuffer.getChannelData(0);
-              const downsampled = downsampleTo16k(raw, inputCtx.sampleRate);
-              const pcm16 = float32ToInt16(downsampled);
-              const b64 = arrayBufferToBase64(pcm16.buffer as ArrayBuffer);
-              ws.send(JSON.stringify({ type: "audio", audio: b64 }));
-            };
-
-            source.connect(processor);
-            processor.connect(inputCtx.destination);
-          } else if (msg.type === "audio" && msg.data && !document.hidden) {
-            setLiveStatus("speaking");
-            enqueuePcm24kAudio(msg.data);
-          } else if (msg.type === "inputTranscript" && msg.text) {
-            setLiveTranscripts((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.role === "user") {
-                return [...prev.slice(0, -1), { ...last, text: `${last.text}${msg.text}` }];
-              }
-              return [...prev, { id: nextId("lu"), role: "user", text: msg.text }];
-            });
-          } else if (msg.type === "outputTranscript" && msg.text) {
-            setLiveTranscripts((prev) => {
-              const last = prev[prev.length - 1];
-              if (last && last.role === "model") {
-                return [...prev.slice(0, -1), { ...last, text: `${last.text}${msg.text}` }];
-              }
-              return [...prev, { id: nextId("lm"), role: "model", text: msg.text }];
-            });
-          } else if (msg.type === "interrupted") {
-            activeSourcesRef.current.forEach((s) => {
-              try {
-                s.stop();
-              } catch {
-                // ignore
-              }
-            });
-            activeSourcesRef.current = [];
-            nextPlayTimeRef.current = 0;
-            setLiveStatus("listening");
-          } else if (msg.type === "error") {
-            stopLiveSession();
-            setLiveError(msg.message || "Live session error.");
-            setLiveStatus("error");
-          } else if (msg.type === "closed") {
-            setLiveStatus("idle");
+          } catch {
+            // ignore malformed frame
           }
-        } catch {
-          // ignore malformed frame
-        }
-      };
+        };
 
-      ws.onerror = () => {
-        if (wsRef.current !== ws) return;
-        stopLiveSession();
-        setLiveError("Unable to reach Live WebSocket server.");
-        setLiveStatus("error");
+        ws.onclose = () => {
+          if (wsRef.current !== ws || attempt !== startGeneration.current) return;
+          upstreamReady.current = false;
+          if (resumeKey && retries < 3) {
+            retries++;
+            setLiveStatus("connecting");
+            retryTimer.current = window.setTimeout(connect,500*retries);
+            return;
+          }
+          stopLiveSession();
+          setLiveError("Live disconnected. Start a new session to continue.");
+          setLiveStatus("error");
+        };
       };
-
-      ws.onclose = () => {
-        if (wsRef.current === ws) stopLiveSession();
-      };
+      connect();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Microphone permission denied.";
       setLiveError(msg);
@@ -1152,10 +1236,26 @@ export default function FloatingAiTutor() {
             transition={{ duration: 0.2, ease: EASE_OUT }}
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.94 }}
-            onClick={() => openAiTutor({ mode: isLiveRunning ? "voice" : "chat" })}
+            drag
+            dragMomentum={false}
+            dragSnapToOrigin
+            onDragEnd={(_,info)=>{
+              const x = Math.max(0,Math.min(100,100*info.point.x/window.innerWidth));
+              const y = Math.max(0,Math.min(100,100*info.point.y/window.innerHeight));
+              setBubblePosition({
+                left:`clamp(12px, ${x<12?0:x>88?100:x}%, calc(100vw - 60px))`,
+                top:`clamp(12px, ${y}%, calc(100dvh - 126px))`,
+              });
+            }}
+            onTap={() => openAiTutor({ mode: isLiveRunning ? "voice" : "chat" })}
+            onKeyDown={event=>{if (event.key==="Enter" || event.key===" ") {
+              event.preventDefault();
+              openAiTutor({mode:isLiveRunning?"voice":"chat"});
+            }}}
+            style={{...bubblePosition,touchAction:"none"}}
             aria-label="Open Skyx AI Assistant"
             title="Skyx AI Assistant (Chat & Live)"
-            className={`fixed ${bubblePosClass} z-[62] w-12 h-12 rounded-full bg-gradient-to-br from-[#4F46E5] via-[#6366F1] to-[#7C3AED] text-white shadow-[0_10px_28px_rgba(79,70,229,0.42)] ring-2 ring-white/80 flex items-center justify-center cursor-pointer`}
+            className={`fixed ${bubblePosition?"":bubblePosClass} z-[62] w-12 h-12 rounded-full bg-gradient-to-br from-[#4F46E5] via-[#6366F1] to-[#7C3AED] text-white shadow-[0_10px_28px_rgba(79,70,229,0.42)] ring-2 ring-white/80 flex items-center justify-center cursor-pointer`}
           >
             {isLiveRunning ? (
               <Radio className="w-5 h-5 animate-pulse" />
@@ -1169,37 +1269,8 @@ export default function FloatingAiTutor() {
         )}
       </AnimatePresence>
 
-      {artifact && (
-        <section aria-label="Assistant result" className={`fixed left-3 z-[63] max-h-[45vh] w-[min(22rem,calc(100vw-5rem))] overflow-auto rounded-xl border border-indigo-200 bg-white p-3 text-sm text-slate-900 shadow-lg ${isFocusedReader ? "bottom-4" : "bottom-20"}`}>
-          <div className="flex items-center gap-2">
-            <button type="button" className="min-w-0 flex-1 truncate text-left font-semibold text-indigo-700" aria-expanded={artifactOpen}
-              onClick={() => setArtifactOpen(!artifactOpen)}>{artifact.title}</button>
-            <button type="button" aria-label="Dismiss assistant result" onClick={() => setArtifact(null)}><X className="h-4 w-4" /></button>
-          </div>
-          {artifactOpen && <>
-            <p className="mt-2 whitespace-pre-wrap break-words">{artifact.text}</p>
-            <div className="mt-2 flex flex-wrap gap-3 text-xs font-medium text-indigo-700">
-              <button type="button" onClick={() => navigator.clipboard.writeText(artifact.text).then(() => notify("Copied.","success"),() => notify("Could not copy.","error"))}>Copy</button>
-              <button type="button" onClick={() => {
-                const url = URL.createObjectURL(new Blob([artifact.title+"\n\n"+artifact.text],{type:"text/plain;charset=utf-8"}));
-                const anchor = document.createElement("a");
-                anchor.href=url;
-                anchor.download="skyx-assistant.txt";
-                anchor.click();
-                window.setTimeout(() => URL.revokeObjectURL(url),1000);
-              }}>Download</button>
-              {artifact.context && <button type="button" disabled={artifactSaving} onClick={async () => {
-                const context = artifact.context;
-                if (!context) return;
-                setArtifactSaving(true);
-                try {
-                  if (await addAnnotation({...context,type:"note",color:"indigo",quote:artifact.title,noteText:artifact.text})) setArtifactOpen(false);
-                } finally { setArtifactSaving(false); }
-              }}>Save to Study Vault</button>}
-            </div>
-          </>}
-        </section>
-      )}
+      <AssistantDock latest={latestArtifact} reader={isFocusedReader} />
+      {visual && <AssistantStage key={visual.kind==="spotlight"?visual.target.textContent:visual.data.title} visual={visual} close={closeVisual} />}
 
       {/* Lightweight Compact Floating Popup (No Full-Screen Dimmer!) */}
       <AnimatePresence>

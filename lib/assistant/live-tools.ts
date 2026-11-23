@@ -1,7 +1,9 @@
+import { z } from "zod";
+import { diagramSpec } from "./artifacts";
 import { Behavior, Type, type FunctionDeclaration, type Schema } from "@google/genai";
 import { prisma } from "../db";
 import { readableBookFilter } from "../book-store-access";
-import { destinations, diagrams, type ServerTool } from "./tools";
+import { destinations, diagrams, whiteboardArgs, type ServerTool } from "./tools";
 
 export function liveTools(model: string) {
   const string = { type: Type.STRING };
@@ -11,6 +13,33 @@ export function liveTools(model: string) {
     parameters: { type: Type.OBJECT, properties, required: Object.keys(properties) },
   });
   return [
+    tool("global_search","Search the learner's accessible catalog by topic, keyword or book title.",{query:string}),
+    tool("search_within_book","Search within an accessible book by ID.",{bookId:string,query:string}),
+    {name:"list_library",description:"List books readable by the learner, optionally filtered by subject.",
+      parameters:{type:Type.OBJECT,properties:{subject:string}}},
+    tool("get_exam_history","Return the signed-in learner's most recent completed exams."),
+    tool("get_study_streak","Return the current learner's recorded streak and weekly goal."),
+    tool("get_due_revisions","Count flashcards currently due for the learner."),
+    tool("continue_reading","Open the most recent accessible topic from the learner's reading history."),
+    tool("spotlight_element","Highlight a unique exact quote in the published Reader or show enlarged text from it.",{quote:string,zoom:{type:Type.BOOLEAN}}),
+    tool("show_concept_animation","Show a step-by-step concept walkthrough.",{title:string,steps:{type:Type.ARRAY,items:string}}),
+    {
+      name:"draw_whiteboard", description:"Draw simple paths with x from 0 to 320 and y from 0 to 200.",
+      parametersJsonSchema:z.toJSONSchema(whiteboardArgs),
+    },
+    tool("generate_topic_notes","Start background study notes for an accessible topic when the learner wants detailed notes. The saved result appears in Assistant Results.",{topicId:string,language:{...string,enum:["bn","en","bilingual"]}}),
+    tool("find_reference_image","Find attributed educational images on Wikimedia Commons.",{query:string}),
+    {
+      name:"edit_custom_diagram",description:"Revise the most recent custom diagram with an updated geometry specification.",
+      ...(model === "gemini-3.8-live-extended-thinking" ? { behavior:Behavior.NON_BLOCKING } : {}),
+      parametersJsonSchema:z.toJSONSchema(z.object({spec:diagramSpec})),
+    },
+    tool("go_to_page","Open an absolute page number in the currently shared PDF.",{page:{type:Type.INTEGER}}),
+    {
+      name:"build_custom_diagram",description:"Create an educational 3D diagram from bounded geometry. Use simple shapes, truthful labels and explicit connections.",
+      ...(model === "gemini-3.8-live-extended-thinking" ? { behavior:Behavior.NON_BLOCKING } : {}),
+      parametersJsonSchema:z.toJSONSchema(z.object({title:z.string().max(120),spec:diagramSpec})),
+    },
     tool("navigate_app", "Open an app screen. Use exam-history for past results.", {destination:{...string,enum:[...destinations]}}),
     tool("control_reader", "Set the published Reader theme or change its text size.", {setting:{...string,enum:["paper","sepia","midnight","larger-text","smaller-text"]}}),
     tool("open_diagram_3d", "Open an existing educational 3D model.", {model:{...string,enum:[...diagrams]}}),

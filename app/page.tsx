@@ -104,7 +104,7 @@ function SkyxAcademyRouter() {
       )}
 
       <GlobalSearchModal />
-      <FloatingAiTutor />
+      <FloatingAiTutor key={user.uid} />
     </>
   );
 }

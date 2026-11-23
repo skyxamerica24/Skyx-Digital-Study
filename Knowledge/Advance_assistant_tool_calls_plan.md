@@ -2,6 +2,8 @@
 
 ২৪ নভেম্বর ২০২৬ · [Advance Assistant মূল প্ল্যান](Advance_assistant_feature.md) · [Book Builder প্ল্যান](Custom_Book_Builder_Plan.md) · [প্রজেক্ট কনটেক্সট](PROJECT_CONTEXT.md)
 
+বর্তমান বাস্তবায়ন ও পরীক্ষার ফল [Implementation status](ADVANCE_ASSISTANT_IMPLEMENTATION.md)-এ আছে। এই নথির অডিট অংশে পরিকল্পনা তৈরির সময়ের অবস্থা রাখা হয়েছে।
+
 ## লক্ষ্য — ব্যবহারকারীর ভাষায়
 
 আগের প্ল্যানে এজেন্টের মূল function গুলো সাজানো হয়েছে (navigation, হাইলাইট, show layer, bubble, নোট, কাস্টম বইয়ের query, 3D compiler)। এই পরিপূরক প্ল্যানের প্রশ্ন: **অ্যাপে যা যা ইতিমধ্যে আছে, তার আর কী কী এজেন্টের হাতে tool call আকারে তুলে দেওয়া যায়** — যাতে শিক্ষার্থী (ও শিক্ষক) প্রায় সব কাজ মেনু না ঘেঁটে শুধু বলে করাতে পারেন।

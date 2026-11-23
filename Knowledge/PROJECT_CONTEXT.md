@@ -90,4 +90,13 @@ Admin-এ নতুন **Book Builder** (রুট `book-builder`) যোগ হ
 
 ## Advance Assistant Tool Call সম্প্রসারণ পরিকল্পনা · ২৪ নভেম্বর ২০২৬
 
-`Knowledge/Advance_assistant_tool_calls_plan.md` যোগ হয়েছে: বর্তমান অ্যাপের অডিট (Live function call এখন মাত্র একটি, `go_to_page`) থেকে আগের প্ল্যানের ২৭টির বাইরে আরও ৩৮টি নতুন tool call-এর প্রস্তাব — খোঁজা, Reader annotation, পরীক্ষা/ইতিহাস বিশ্লেষণ, revision, study plan ও personal memory, শিক্ষকের builder tool, multimodal ছবি। প্রতিটি tool-এর পাশে ভিত্তি (বিদ্যমান কোড/API) ও অনুমতি স্তর (Read / Write / Confirm) লেখা; ধাপ T0–T4 আগের প্ল্যানের Phase 0–5-এর সঙ্গে মিলিয়ে সাজানো। বাস্তবায়ন শুরু হয়নি — এটি পরিকল্পনা।
+`Knowledge/Advance_assistant_tool_calls_plan.md` যোগ হয়েছে: বর্তমান অ্যাপের অডিট (Live function call এখন মাত্র একটি, `go_to_page`) থেকে আগের প্ল্যানের ২৭টির বাইরে আরও ৩৮টি নতুন tool call-এর প্রস্তাব — খোঁজা, Reader annotation, পরীক্ষা/ইতিহাস বিশ্লেষণ, revision, study plan ও personal memory, শিক্ষকের builder tool, multimodal ছবি। প্রতিটি tool-এর পাশে ভিত্তি (বিদ্যমান কোড/API) ও অনুমতি স্তর (Read / Write / Confirm) লেখা; ধাপ T0–T4 আগের প্ল্যানের Phase 0–5-এর সঙ্গে মিলিয়ে সাজানো। পরবর্তী আপডেটে T0 প্যাকেজ বাস্তবায়িত হয়েছে।
+
+
+## Advance Assistant implementation update
+
+The root tutor resumes the browser and Gemini connections with the same conversation when the resumption handle remains valid. Smart Document Reader can share the selected PDF with that tutor. The published Reader and PDF Read Aloud use device speech synthesis. PDF highlighting depends on an aligned, selectable text layer.
+
+Assistant Results stores personal notes, examples, editable diagrams and reference cards in PostgreSQL. Study Content handles background notes using an accessible topic excerpt. Reader spotlight, enlarged text, concept steps and a whiteboard use the existing Live command channel. This release adds the seven T0 tools, including catalog search with the Bengali-aware search index, exam history, streak and due card checks. Existing private documents stay outside catalog search.
+
+Verification uses temporary PostgreSQL with simulated Gemini Live and text models. The tool contract includes cross-account resume rejection, locked catalog denial, background notes, diagram validation, revision history and account isolation. Real-provider Live Audio, PDF viewport, WebGL and Android verification remain open. See [implementation status](ADVANCE_ASSISTANT_IMPLEMENTATION.md) for the remaining phases.

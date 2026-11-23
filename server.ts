@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
@@ -10,7 +11,12 @@ import {
   isGeminiConfigured,
 } from "./lib/gemini-server";
 import { getCurrentUser } from "./lib/db/user";
-import { clientActionSchema, serverToolSchema } from "./lib/assistant/tools";
+import { searchCommonsImages } from "./lib/assistant/reference-images";
+import { backgroundNotesArgs, clientActionSchema, serverToolSchema } from "./lib/assistant/tools";
+import { startBackgroundNotes } from "./lib/assistant/background-notes";
+import { getLatestReadingTopic, learnerToolSchema, runLearnerTool } from "./lib/assistant/learner-tools";
+import { readableBookFilter } from "./lib/book-store-access";
+import { recordAssistantToolRun } from "./lib/assistant/server-config";
 import { liveTools, runServerTool } from "./lib/assistant/live-tools";
 import { prisma } from "./lib/db";
 
@@ -31,6 +37,7 @@ interface LivePageContextPayload {
 interface LiveInitPayload {
   type: "init";
   token?: string;
+  resumeKey?: string;
   mode?: "explain" | "quiz" | "viva";
   model?: string;
   secretSlot?: string;
@@ -70,7 +77,14 @@ type ClientLiveMessage =
   | LiveVideoPayload
   | LiveContextUpdatePayload
   | LiveTextPayload
+  | {type:"end"}
   | { type: "actionResult"; id: string; ok: boolean };
+
+type DetachedLiveSession = {
+  userId:string; conversationId:string; model:string; credentialSlot?:string;
+  handle:string; expires:number;
+};
+const detachedLiveSessions = new Map<string,DetachedLiveSession>();
 
 const ALLOWED_VOICES = new Set([
   "Zephyr",
@@ -256,6 +270,10 @@ app.prepare().then(() => {
     let pendingUserTranscript = "";
     let pendingModelTranscript = "";
     let lastModelUsed: string | null = null;
+    let resumeKey: string = randomUUID();
+    let explicitEnd = false;
+    let resumeModel: string | undefined;
+    let resumeSlot: string | undefined;
     let resumeHandle: string | undefined;
     let connectUpstream: (() => Promise<typeof liveSession | undefined>) | undefined;
     let generation = 0;
@@ -292,7 +310,9 @@ app.prepare().then(() => {
     }
 
     async function handleTool(name: string, id: string, args: Record<string, unknown> | undefined, token: string, current: number) {
+      let auditUserId: string | undefined;
       const respond = (response: Record<string, unknown>) => {
+        if (auditUserId) void recordAssistantToolRun(auditUserId,name,resumeModel,Boolean(response.error)).catch(()=>{});
         if (generation !== current || isClosing || !liveSession) return;
         try { liveSession.sendToolResponse({functionResponses:[{id,name,response}]}); }
         catch { sendSafe({type:"error",message:"Could not send the tool result."}); }
@@ -300,18 +320,38 @@ app.prepare().then(() => {
       try {
         const actor = await getCurrentUser(token);
         if (!actor) { respond({error:"Sign in again."}); return; }
+        auditUserId = actor.userId;
         const input = {name,args:args ?? {}};
+        const learnerTool = learnerToolSchema.safeParse(input);
+        if (learnerTool.success) {
+          const book = {AND:[await readableBookFilter(token),{isPublished:true}]};
+          respond(await runLearnerTool(learnerTool.data,actor.userId,book));
+          return;
+        }
+        if (name === "generate_topic_notes") {
+          const parsed = backgroundNotesArgs.safeParse(input.args);
+          if (!parsed.success) { respond({error:"Invalid notes arguments."}); return; }
+          respond(await startBackgroundNotes(parsed.data,{token,userId:actor.userId},entry=>{
+            sendSafe({type:"notesJobFinished",entry});
+          }));
+          return;
+        }
         const serverTool = serverToolSchema.safeParse(input);
         if (serverTool.success) {
           respond(await runServerTool(serverTool.data,{token,userId:actor.userId}));
           return;
         }
-        const parsed = clientActionSchema.safeParse(input);
+        const latestTopic = name === "continue_reading" ? await getLatestReadingTopic(actor.userId,{
+          AND:[await readableBookFilter(token),{isPublished:true}],
+        }) : undefined;
+        if (latestTopic === null) {respond({error:"No accessible recent topic. Open a book to start reading.",code:"NOT_FOUND"});return;}
+        const parsed = clientActionSchema.safeParse(latestTopic ? {name:"open_topic",args:{topicId:latestTopic.id}} : input);
         if (!parsed.success) { respond({error:"Unknown action or invalid arguments."}); return; }
         const action = parsed.data;
         let topicContext;
+        const referenceImages = action.name === "find_reference_image" ? await searchCommonsImages(action.args.query) : undefined;
         if (action.name === "open_topic" || action.name === "make_structured_notes") {
-          const result = await runServerTool({name:"get_topic_content",args:{topicId:action.args.topicId}},{token,userId:actor.userId});
+          const result = latestTopic ? {topic:latestTopic} : await runServerTool({name:"get_topic_content",args:{topicId:action.args.topicId}},{token,userId:actor.userId});
           if (!result.topic) { respond({error:"Topic unavailable."}); return; }
           const { id:topicId,bookId,topicTitle,book:{title:bookTitle} } = result.topic;
           topicContext = {topicId,bookId,topicTitle,bookTitle};
@@ -325,7 +365,7 @@ app.prepare().then(() => {
           respond({error:"The app did not confirm the action."});
         }, 10000);
         pendingActions.set(id,{timer,finish:ok => respond(ok ? {ok:true} : {error:"The app could not complete the action."})});
-        sendSafe({type:"action",id,action,topicContext});
+        sendSafe({type:"action",id,action,topicContext,referenceImages});
       } catch {
         respond({error:"Could not complete the tool call."});
       }
@@ -406,23 +446,32 @@ app.prepare().then(() => {
             liveSession = null;
           }
 
-          // --- 5. Create a new conversation for this session ---
-          const conv = await prisma.aiConversation.create({
-            data: {
-              userId: authenticatedUser.userId,
-              channelId: "live-voice",
-              messageCount: 0,
-            },
-          });
-          conversationId = conv.id;
-          pendingUserTranscript = "";
-          pendingModelTranscript = "";
-          lastModelUsed = null;
-
-          // --- 6. Resolve model and voice from channel config ---
           const credentialSlot = channelConfig.credentialSlot || msg.secretSlot;
+          const selectedModel = resolveServerLiveModel(channelConfig,msg.model);
+          resumeModel = selectedModel;
+          resumeSlot = credentialSlot;
+          if (msg.resumeKey) {
+            const detached = detachedLiveSessions.get(msg.resumeKey);
+            const conversation = detached && detached.userId === decoded.userId && detached.expires > Date.now() &&
+              detached.model === selectedModel && detached.credentialSlot === credentialSlot
+              ? await prisma.aiConversation.findFirst({where:{id:detached.conversationId,userId:decoded.userId},select:{id:true}})
+              : null;
+            if (!conversation || !detached || detachedLiveSessions.get(msg.resumeKey)!==detached) {
+              sendSafe({type:"error",message:"The previous session could not be resumed. Start a new session to continue."});
+              clientWs.close();
+              return;
+            }
+            detachedLiveSessions.delete(msg.resumeKey);
+            resumeKey = msg.resumeKey;
+            resumeHandle = detached.handle;
+            conversationId = conversation.id;
+          } else {
+            const conversation = await prisma.aiConversation.create({
+              data:{userId:decoded.userId,channelId:"live-voice",messageCount:0},select:{id:true},
+            });
+            conversationId = conversation.id;
+          }
           const ai = getGeminiClient(credentialSlot);
-          const selectedModel = resolveServerLiveModel(channelConfig, msg.model);
           const defaultVoice = channelConfig.voiceName && ALLOWED_VOICES.has(channelConfig.voiceName)
             ? channelConfig.voiceName
             : "Zephyr";
@@ -512,7 +561,7 @@ app.prepare().then(() => {
               if (!isCurrent()) return;
               reconnecting = false;
               lastModelUsed = selectedModel;
-              sendSafe({type:"ready",model:selectedModel,voiceName,conversationId,resumed:Boolean(handle)});
+              sendSafe({type:"ready",model:selectedModel,voiceName,conversationId,resumeKey,resumed:Boolean(handle)});
               return upstream;
             } finally {
               clearTimeout(timer);
@@ -520,7 +569,7 @@ app.prepare().then(() => {
           };
           const openedSession = await connectUpstream();
 
-          if (msg.mode === "quiz" || msg.mode === "viva") {
+          if (!msg.resumeKey && (msg.mode === "quiz" || msg.mode === "viva")) {
             openedSession?.sendRealtimeInput({
               text:
                 msg.mode === "quiz"
@@ -528,6 +577,13 @@ app.prepare().then(() => {
                   : "Begin the viva session briefly and ask your first sharp exam question from the current topic.",
             });
           }
+          return;
+        }
+
+        if (msg.type === "end") {
+          explicitEnd = true;
+          detachedLiveSessions.delete(resumeKey);
+          clientWs.close();
           return;
         }
 
@@ -592,6 +648,17 @@ app.prepare().then(() => {
       generation++;
       clearActions();
       flushTranscripts();
+      if (!explicitEnd && authenticatedUser && conversationId && resumeModel && resumeHandle) {
+        for (const [key,value] of detachedLiveSessions) {
+          if (value.expires <= Date.now()) detachedLiveSessions.delete(key);
+        }
+        if (detachedLiveSessions.size >= 512) {
+          const oldest = detachedLiveSessions.keys().next().value;
+          if (oldest) detachedLiveSessions.delete(oldest);
+        }
+        detachedLiveSessions.set(resumeKey,{userId:authenticatedUser.userId,conversationId,model:resumeModel,
+          credentialSlot:resumeSlot,handle:resumeHandle,expires:Date.now()+180000});
+      }
       if (liveSession) {
         try {
           liveSession.close();

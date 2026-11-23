@@ -66,4 +66,6 @@ In **Admin → Book Builder**, select a legacy catalog book and choose **Migrate
 
 ### Advance Assistant
 
-Use Floating Tutor → Live Voice to navigate app panels, look up an accessible topic, show an example or create study notes. The Live Voice channel requires a configured Gemini key and a supported Live model. The published Reader also offers Read Aloud using the device's speech synthesis. Implementation and verification status are in [Advance Assistant implementation](Knowledge/ADVANCE_ASSISTANT_IMPLEMENTATION.md).
+Use **Floating Tutor → Live Voice** to navigate the app, search accessible books, resume reading, or ask for study notes. In the PDF Reader, enable **Share PDF with Tutor** to use voice page commands in the same session. **Assistant Results** keeps saved notes, attributed images and editable 3D diagrams in your account. Read Aloud uses the device's speech synthesis and highlights selectable text.
+
+Configure the Live Voice channel with an account-supported Gemini Live model and a server key. Background notes require a configured Study Content text model. Run `npm run db:setup` with the target database configured before starting this version. See the [implementation and verification status](Knowledge/ADVANCE_ASSISTANT_IMPLEMENTATION.md).

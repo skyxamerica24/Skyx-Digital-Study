@@ -1,26 +1,21 @@
 # Advance Assistant implementation
 
-## Delivery order
+The [feature plan](Advance_assistant_feature.md) covers the companion, PDF and visual workflows. The [tool expansion plan](Advance_assistant_tool_calls_plan.md) defines packages T0–T4.
 
-| Phase | Implementation | Acceptance |
+| Area | Implemented | Remaining |
 | --- | --- | --- |
-| 1 | Stabilize the root companion, keep microphone frames out of hidden tabs, and resume the upstream session using its latest handle. Add typed Live tools for navigation, progress and existing 3D models. | Change app panels without releasing the microphone. Simulate an upstream restart. A command must report the actual result or a clear failure. |
-| 2 | Add authenticated catalog tools for author lookup, contents, topic search and opening a topic. Give the model only published content readable by that account. | Locate a Bengali topic, find its breadcrumb and open it. Verify that another account cannot retrieve a locked topic. |
-| 3 | Present examples and structured notes in a compact companion panel. Use Study Vault for deliberately saved notes. Add sentence-level playback highlighting to the published Reader. | Generate notes for a particular topic, reopen them from the Vault and follow a spoken sentence in the Reader. |
-| 4 | Unify PDF and app session ownership, add PDF text-layer highlighting, durable artifact workflows, background generation and an optional roaming companion. | Read and highlight a raw PDF, change panels, and resume after returning on a supported mobile device. |
-| 5 | Add a validated diagram specification and editing, versions, reference-image attribution, and spotlight/zoom/whiteboard tools. | Reject an invalid spec, edit and reopen a saved revision, and show image sources and licenses. |
+| Live session | Root Floating Tutor across app routes. Microphone and screen frames pause while hidden. Upstream and browser WebSocket resumption reuse the same conversation when a valid handle is available. | Verify with a configured Gemini Live model on desktop and Android. The browser resume cache lives for three minutes in one Node process. |
+| PDF | **Share PDF with Tutor** opts the selected document into the root session. Page commands wait for rendering and send the page frame. The standalone Reader Live control remains available when sharing is off. Read Aloud highlights selectable PDF text and published Reader sentences. | Verify spoken page commands and text highlighting in a browser. Scanned images need an aligned OCR layer, and device speech synthesis determines the available Bangla voices. |
+| Results | Per-account PostgreSQL dock for examples, notes, diagrams and reference results. Pin, delete, export and save notes to Study Vault. The Study Content text model can generate topic notes while Live Voice continues. | Background generation runs in the server process and saves completed results even if the browser disconnects. Persistent job status, retries after restart, quiz and flashcard artifact workflows are pending. |
+| Visuals | Spotlight and enlarged text for a uniquely matched Reader block, animated walkthroughs, whiteboard strokes, and custom 3D diagrams with editing and version history. Wikimedia Commons reference cards include source and license metadata. | PDF-region callouts, topic-linked diagrams, built-in model conversion, flow and exploded animations, image-to-diagram generation and physical WebGL verification. |
+| Companion | Drag the compact button and dock it near either side. The default is bottom-right. | Position persistence after reload, automatic roaming, picture-in-picture and wake lock. |
+| Tool expansion T0 | Catalog search, book-scoped search, library listing, exam history, study streak, due flashcards, and continue reading. The server verifies the caller and uses published book access rules for catalog data. Tool calls are logged with model and result status. | Voice evaluation in Bangla and English and search evaluation against larger catalogs. Continue Reading opens the most recent readable topic. |
+| Tool expansion T1–T4 | The published Reader spotlight can locate a unique text block. | Reader annotation and speech tools, exam and revision controls, personal planning and memory, teacher tools and photo workflows remain open. Destructive operations need explicit confirmation in the application before any tool is enabled. |
 
-Default placement is bottom-right. Roaming starts disabled. Notes follow the learner's language request. Keep the interface controls in English. The initial release should be tested before enabling optional display modes or automatic context capture.
-
-## Delivered in this release
-
-- The root Floating Tutor keeps its connection across app panels. It suppresses microphone and screen frames in a hidden document. The server reconnects to Gemini with its latest resumption handle and retains the same conversation record. PDF Reader Live pauses microphone and frame capture on tab hide. Leaving the PDF Reader still ends its separate session.
-- Live tools open allowlisted pages and built-in 3D models, adjust the published Reader theme and text size, and get the user's reading progress. Catalog tools look up a book by author, return its contents, and find or open a published topic. Server queries apply marketplace access.
-- Result cards show examples and structured notes. Cards support copy and download. Notes can be saved to Study Vault by the learner. One result card is visible at a time. Dismissing an unsaved card clears it.
-- Read Aloud in the published Reader uses device speech synthesis. It shows the current sentence and highlights the source text on browsers with the CSS Highlight API. The speech voice depends on the device.
+New dashboard controls use English. Generated study notes can be in Bangla, English or both. Set the **Live Voice** channel to a model and credential slot supported by the Gemini account. Background topic notes use the **Study Content** channel and its text model. Apply the Prisma schema before starting the updated app. See the [README](../README.md) for setup.
 
 ## Verification
 
-A local PostgreSQL application with a simulated Gemini Live upstream verified authenticated WebSocket setup, progress, Bengali topic search, denial of locked content and unsupported destinations, notes context, action acknowledgment and connection resumption with the same conversation ID. Real Gemini audio, browsers and mobile background behavior require separate verification.
+The production build passed. The local production server returned HTTP 200 for the homepage, health and database readiness. Manual Book Builder autosave now uses React hooks available in the production bundle.
 
-The remaining work covers browser transport reconnection after the app WebSocket drops, unified PDF/app session ownership and raw PDF highlighting. It also covers a persisted artifact dock, background generation, roaming and picture-in-picture, and custom diagram generation/editing with attribution.
+The local test uses temporary PostgreSQL and simulated Gemini Live and text responses. It exercises authenticated WebSocket setup, Bengali catalog search, access denial for locked books, background notes, tool action acknowledgment, resumption under both transports, rejection of cross-account resume attempts, and artifact ownership and diagram versioning. It also checks the T0 profile, exam, revision and library tools. Provider voice output, PDF canvas behavior, WebGL and Android remain unverified.

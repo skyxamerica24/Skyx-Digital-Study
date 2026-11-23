@@ -1415,6 +1415,7 @@ export default function BookReaderWorkspace() {
                     <ReadAlong content={readAlongContent} topicId={activeTopic.id} language={activeBook.language} />
                     <div
                       ref={readAlongContent}
+                      data-assistant-reading-source
                       className="skyx-prose"
                       style={{
                         fontFamily: activeFont.cssFontFamily,

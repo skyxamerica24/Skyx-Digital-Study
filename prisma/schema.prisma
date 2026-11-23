@@ -21,6 +21,7 @@ model User {
   updatedAt             DateTime      @updatedAt
 
   passwordReset         PasswordReset?
+  assistantArtifacts    AssistantArtifact[]
   flashcards            Flashcard[]
   annotations           LearnerAnnotation[]
   readingProgress       ReadingProgress[]
@@ -616,4 +617,29 @@ model PasswordReset {
   issuedAt  DateTime @default(now())
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AssistantArtifact {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String
+  title     String
+  payload   Json
+  pinned    Boolean  @default(false)
+  revision  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  versions  AssistantArtifactVersion[]
+
+  @@index([userId, updatedAt])
+}
+
+model AssistantArtifactVersion {
+  artifactId String
+  artifact   AssistantArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  revision   Int
+  payload    Json
+
+  @@id([artifactId, revision])
 }

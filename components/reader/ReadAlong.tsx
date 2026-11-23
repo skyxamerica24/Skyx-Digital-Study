@@ -4,10 +4,11 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 const highlightName = "skyx-read-along";
 
-export default function ReadAlong({ content, topicId, language }: {
+export default function ReadAlong({ content, topicId, language, pdf = false }: {
   content: RefObject<HTMLDivElement | null>;
   topicId: string;
   language: string;
+  pdf?: boolean;
 }) {
   const session = useRef(0);
   const speaking = useRef(false);
@@ -41,13 +42,16 @@ export default function ReadAlong({ content, topicId, language }: {
     for (const block of blocks.length ? Array.from(blocks) : [root]) {
       // A nested paragraph, list or table cell will be processed separately.
       if (block.querySelector("p, li, td, th, pre")) continue;
-      const walker = document.createTreeWalker(block,NodeFilter.SHOW_TEXT);
+      const walker = document.createTreeWalker(block,NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
       const nodes: {node:Text; start:number; end:number}[] = [];
       let text = "";
       for (let child = walker.nextNode(); child; child = walker.nextNode()) {
+        if (child.nodeName === "BR") text += "\n";
+        if (child.nodeType !== Node.TEXT_NODE) continue;
         const node = child as Text;
         nodes.push({node,start:text.length,end:text.length+node.length});
         text += node.data;
+        if (pdf && node.parentElement?.tagName === "SPAN") text += " ";
       }
       for (const match of text.matchAll(/[^।!?\.\n]+[।!?\.]+|[^।!?\.\n]+/gu)) {
         const spoken = match[0].trim();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { listBookDrafts, saveBookDraft } from "@/lib/actions/book-builder-actions";
@@ -82,7 +82,7 @@ export default function ManualBookBuilder() {
     if (!other || !selected) return;
     update({ ...document, nodes: document.nodes.map(node => node.id === selected.id ? other : node.id === other.id ? selected : node) });
   }
-  async function save(publish: boolean) {
+  const save = useCallback(async (publish: boolean) => {
     setBusy(true);
     setStatus("");
     try {
@@ -101,15 +101,13 @@ export default function ManualBookBuilder() {
     } finally {
       setBusy(false);
     }
-  }
-
-  const autosave = useEffectEvent(() => { void save(false); });
+  },[applyPublishedBook,document,drafts,id,revision]);
 
   useEffect(() => {
     if (!id || !dirty || busy || status || !document.title.trim()) return;
-    const timer = window.setTimeout(() => autosave(), 1500);
+    const timer = window.setTimeout(() => { void save(false); }, 1500);
     return () => window.clearTimeout(timer);
-  }, [id, dirty, busy, status, document]);
+  }, [id, dirty, busy, status, document, save]);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 sm:p-6">

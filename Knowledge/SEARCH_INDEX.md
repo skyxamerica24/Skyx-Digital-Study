@@ -17,4 +17,5 @@
 | ফ্লোটিং AI ও লাইভ সংযোগ | [টিউটর](../components/ai/FloatingAiTutor.tsx), [সার্ভার](../server.ts) |
 | হাতে বই তৈরি — Chapter/Topic/Subtopic/Point গাছ, টেক্সট সম্পাদনা, Reader-এ প্রকাশ | [Book Builder UI](../components/admin/BookBuilderWorkspace.tsx), [Node actions](../lib/actions/book-node-actions.ts), [Tree utilities](../lib/book-builder/tree.ts), [পরিকল্পনা](Custom_Book_Builder_Plan.md) |
 | Advance Assistant (persistent live, highlight, bubbles) পরিকল্পনা | [Advance Assistant Plan](Advance_assistant_feature.md) |
+| Advance Assistant implementation and verification | [Implementation status](ADVANCE_ASSISTANT_IMPLEMENTATION.md) |
 | Advance Assistant-এর অতিরিক্ত tool call সম্প্রসারণ পরিকল্পনা | [Tool Calls Plan](Advance_assistant_tool_calls_plan.md) |

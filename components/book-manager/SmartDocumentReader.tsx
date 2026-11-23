@@ -51,6 +51,10 @@ import {
   type ExtractedPageClip,
   type ReaderDocumentItem,
 } from "@/lib/book-engine/reader-helpers";
+import ReadAlong from "@/components/reader/ReadAlong";
+import { setAssistantPdf } from "@/lib/assistant/pdf-session";
+import { visiblePageFrame } from "@/lib/reader-live/view";
+import { useApp } from "@/components/context/AppContext";
 import ReaderLiveControl from "./ReaderLiveControl";
 import ReaderShortcutRail from "./ReaderShortcutRail";
 import type { SkyxBookProject } from "@/lib/book-engine/types";
@@ -156,6 +160,10 @@ export default function SmartDocumentReader({
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Refs
+  const { openAiTutor } = useApp();
+  const [sharedPdfId, setSharedPdfId] = useState<string | null>(null);
+  const sharePdf = Boolean(activeDoc && activeDoc.id === sharedPdfId);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -443,6 +451,19 @@ export default function SmartDocumentReader({
     },
     [activeDoc, onUpdateDoc]
   );
+
+  useEffect(() => {
+    if (!sharePdf || !activeDoc || activeDoc.format !== "pdf") { setAssistantPdf(null); return; }
+    const renderKey = renderedPageKey === activeRenderKey && !pdfError && !mobileSheetOpen ? activeRenderKey : null;
+    setAssistantPdf({
+      documentId:activeDoc.id,title:activeDoc.title,page:currentPage,total:totalPages,renderKey,navigate:goToPage,
+      capture:previous=>visiblePageFrame({canvas:canvasRef.current,viewport:viewportRef.current,page:currentPage,renderKey},previous),
+    });
+  },[sharePdf,activeDoc,renderedPageKey,activeRenderKey,pdfError,mobileSheetOpen,currentPage,totalPages,goToPage]);
+  useEffect(() => {
+    if (!sharePdf) setAssistantPdf(null);
+    return () => setAssistantPdf(null);
+  },[sharePdf]);
 
   function submitPageInput(raw: string) {
     const normalized = normalizeBanglaDigits(raw).trim();
@@ -1307,7 +1328,13 @@ export default function SmartDocumentReader({
 
           </div>
           </div>
-          {isPdfDoc && <ReaderLiveControl key={activeDoc.id} page={currentPage} total={totalPages}
+          {isPdfDoc && <button type="button" aria-pressed={sharePdf}
+            className="rounded-lg border px-2 py-1 text-xs font-semibold"
+            onClick={() => {
+              setSharedPdfId(sharePdf ? null : activeDoc.id);
+              if (!sharePdf) openAiTutor({mode:"voice"});
+            }}>{sharePdf?"Stop Sharing PDF":"Share PDF with Tutor"}</button>}
+          {isPdfDoc && !sharePdf && <ReaderLiveControl key={activeDoc.id} page={currentPage} total={totalPages}
             canvas={canvasRef} viewport={viewportRef} navigate={goToPage}
             renderKey={renderedPageKey === activeRenderKey && !pdfError && !mobileSheetOpen ? activeRenderKey : null} />}
         </div>
@@ -1437,6 +1464,9 @@ export default function SmartDocumentReader({
                     </div>
                   )}
 
+                  {renderedPageKey===activeRenderKey && activeRenderKey && <div className="absolute left-2 top-2 z-10 rounded-lg bg-white/95 px-2 pt-1 shadow">
+                    <ReadAlong content={textLayerRef} topicId={activeRenderKey} language="bilingual" pdf />
+                  </div>}
                   <canvas ref={canvasRef} className="block" />
                   <div
                     ref={textLayerRef}
