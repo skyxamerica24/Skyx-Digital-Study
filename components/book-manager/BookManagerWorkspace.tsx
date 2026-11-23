@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getSessionToken } from "@/lib/auth/session-storage";
 import { listLocalBooks, openLocalBook, storeLocalBook, type ShelfItem } from "@/lib/book-engine/local-shelf";
+import { createSearchIndex } from "@/lib/search-index";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
@@ -228,6 +229,7 @@ export default function BookManagerWorkspace() {
   const [forceOcr, setForceOcr] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [shelfItems, setShelfItems] = useState<ShelfItem[]>([]);
+  const shelfSearch = useMemo(() => createSearchIndex(shelfItems, item => [item.fileName, item.edited ? "সম্পাদিত edited" : "মূল original"]), [shelfItems]);
   const [shelfOpen, setShelfOpen] = useState(false);
   const [shelfQuery, setShelfQuery] = useState("");
   const [localShelf, setLocalShelf] = useState(false);
@@ -716,7 +718,7 @@ export default function BookManagerWorkspace() {
           <p className="text-xs text-slate-600">{localShelf ? "এই ব্রাউজারে সংরক্ষিত বই" : "অ্যাকাউন্টের বই"}</p>
           {archiveMessage && <p role="status">{archiveMessage}</p>}
           <div className="max-h-72 overflow-y-auto">
-          {shelfItems.filter(i=>i.fileName.toLocaleLowerCase().includes(shelfQuery.toLocaleLowerCase())).map(i=><div key={i.id} className="flex items-center gap-3 border-t py-2">
+          {shelfSearch(shelfQuery).map(i=><div key={i.id} className="flex items-center gap-3 border-t py-2">
             <span className="min-w-0 flex-1 break-words">{i.fileName}{i.edited && " · সম্পাদিত"}{i.edited && i.createdAt && <small className="block">{new Date(i.createdAt).toLocaleString("bn-BD")}</small>}</span>
             <button disabled={extracting} onClick={()=>openShelfBook(i,"reader")}>পড়ুন</button>
             <button disabled={extracting} onClick={()=>openShelfBook(i,"studio")}>সম্পাদনা</button>

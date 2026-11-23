@@ -13,7 +13,8 @@ A bilingual English and Bangla study app with a book reader, learner workspace, 
 Install the dependencies and set `DATABASE_URL` and `JWT_SECRET` in `.env.local`. For a new local database, run the setup command and create the first administrator with your own email.
 
 ```sh
-npm install
+npm ci
+npx prisma generate --config prisma/prisma.config.ts
 npm run db:setup
 npm run admin:create -- your-email@example.com
 npm run dev
@@ -21,8 +22,15 @@ npm run dev
 
 If the database and administrator already exist, start with `npm run dev`. Open [localhost:3000](http://localhost:3000/).
 
-<!--
-Work on the user's current request. Planning notes, snapshots, and checklists are optional references. They do not set the scope, order, or completion criteria for a task.
+## Book Manager and search
+
+Upload one or more books from the shared shelf in Smart Reader and Extract Studio. Open an original for reading, edit its extracted content, or save a customized edition. PDF, EPUB, DOCX, TXT, Markdown, CSV and SkyxBook projects are supported.
+
+- **Portable mode** stores the shelf in IndexedDB for the current browser and account. Clearing site data removes these copies.
+- **VPS mode** uses PostgreSQL and a persistent directory outside the public web root. Set `SKYX_STORAGE_MODE=vps_local` and `SKYX_VPS_STORAGE_DIR`. Original file bytes are addressed by content hash. Customized editions are compressed separately. Back up both the database and the originals directory.
+- **Global search** indexes the loaded catalog, topic text and question bank. The shelf indexes file names and whether each item is an original or edited copy. Bengali and ASCII digits match. Titles and exact terms rank ahead of other text. Search indexes rebuild when their source lists change.
+
+[Current project context](Knowledge/PROJECT_CONTEXT.md) · [Source navigation index](Knowledge/SEARCH_INDEX.md) · [Development plan](Knowledge/PLAN.md)
 -->
 
 ## Bengali PDF extraction

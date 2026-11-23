@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BookOpen, FileText, HelpCircle, Search, Sparkles, X } from "lucide-react";
+import { createSearchIndex } from "@/lib/search-index";
 import { useApp } from "@/components/context/AppContext";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
@@ -21,36 +22,17 @@ export default function GlobalSearchModal() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isSearchOpen, setIsSearchOpen]);
 
-  const results = useMemo(() => {
-    const q = queryText.trim().toLowerCase();
-    if (!q) {
-      return {
-        books: books.slice(0, 4),
-        topics: topics.slice(0, 5),
-        questions: questions.slice(0, 3),
-      };
-    }
-
-    const terms = q.split(/\s+/).filter(Boolean);
-    const matches = (haystack: string) => {
-      const low = haystack.toLowerCase();
-      return terms.every((t) => low.includes(t));
-    };
-
-    return {
-      books: books
-        .filter((b) => matches(`${b.title} ${b.subtitle || ""} ${b.subject} ${b.author} ${b.description}`))
-        .slice(0, 5),
-      topics: topics
-        .filter((t) =>
-          matches(`${t.chapterTitle} ${t.sectionTitle} ${t.topicTitle} ${t.searchTokens || ""} ${t.contentMarkdown}`)
-        )
-        .slice(0, 8),
-      questions: questions
-        .filter((item) => matches(`${item.stem} ${item.chapterTitle} ${item.explanation}`))
-        .slice(0, 5),
-    };
-  }, [queryText, books, topics, questions]);
+  const bookSearch = useMemo(() => createSearchIndex(books, b =>
+    [b.title, [b.subtitle, b.subject, b.author, b.description].join(" ")]), [books]);
+  const topicSearch = useMemo(() => createSearchIndex(topics, t =>
+    [t.topicTitle, [t.chapterTitle, t.sectionTitle, t.searchTokens, t.contentMarkdown].join(" ")]), [topics]);
+  const questionSearch = useMemo(() => createSearchIndex(questions, q =>
+    [q.stem, [q.chapterTitle, q.explanation].join(" ")]), [questions]);
+  const results = useMemo(() => ({
+    books: bookSearch(queryText, queryText.trim() ? 5 : 4),
+    topics: topicSearch(queryText, queryText.trim() ? 8 : 5),
+    questions: questionSearch(queryText, queryText.trim() ? 5 : 3),
+  }), [bookSearch, topicSearch, questionSearch, queryText]);
 
   const totalCount = results.books.length + results.topics.length + results.questions.length;
 
