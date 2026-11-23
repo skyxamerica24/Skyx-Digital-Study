@@ -51,6 +51,11 @@ import type {
   SubscriptionPlan,
 } from "@/lib/types";
 
+const BookBuilderWorkspace = dynamic(
+  () => import("@/components/admin/BookBuilderWorkspace"),
+  { ssr: false },
+);
+
 const BookManagerWorkspace = dynamic(
   () => import("@/components/book-manager/BookManagerWorkspace"),
   {
@@ -1765,6 +1770,13 @@ export default function AdminWorkspace() {
   // =========================================================================
   if (adminRoute === "book-manager") {
     return <BookManagerWorkspace />;
+  }
+
+  // =========================================================================
+  // ROUTE 7C: MANUAL BOOK BUILDER (CUSTOM BOOK TREE)
+  // =========================================================================
+  if (adminRoute === "book-builder") {
+    return <BookBuilderWorkspace />;
   }
 
   // =========================================================================

@@ -331,6 +331,7 @@ export type AdminRoute =
   | "overview"
   | "academic"
   | "books"
+  | "book-builder"
   | "processing"
   | "editor"
   | "ai-studio"

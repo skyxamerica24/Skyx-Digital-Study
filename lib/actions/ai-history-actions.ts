@@ -444,26 +444,7 @@ export async function listToolRunsAction(channelId: string, limit = 20) {
 }
 
 /**
- * Authenticate a user from a NextRequest cookie (for API routes).
- * Returns null if not authenticated.
+ * getUserFromRequestCookie moved to lib/auth/request-user.ts — it is a
+ * synchronous helper and cannot be exported from this 'use server' module
+ * (Next.js build: "Server Actions must be async functions").
  */
-export function getUserFromRequestCookie(req: { headers: { get: (name: string) => string | null } }) {
-  try {
-    const cookieHeader = req.headers.get('cookie');
-    if (!cookieHeader) return null;
-    const cookies = cookieHeader.split(';').map(c => c.trim());
-    let sessionToken: string | undefined;
-    for (const cookie of cookies) {
-      const [name, ...rest] = cookie.split('=');
-      if (name.trim() === 'skyx-session') {
-        sessionToken = rest.join('=').trim();
-        break;
-      }
-    }
-    if (!sessionToken) return null;
-    const decoded = verifySessionToken(sessionToken);
-    return decoded;
-  } catch {
-    return null;
-  }
-}

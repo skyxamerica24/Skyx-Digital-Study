@@ -63,6 +63,7 @@ const ROUTE_TITLES: Record<string, string> = {
   overview: "Admin · Overview",
   academic: "Admin · Curriculum & Subjects",
   books: "Admin · Books & Importer",
+  "book-builder": "Admin · Book Builder",
   processing: "Admin · Book Processing Queue",
   editor: "Admin · Book Content Editor",
   "ai-studio": "Admin · AI Content Studio",

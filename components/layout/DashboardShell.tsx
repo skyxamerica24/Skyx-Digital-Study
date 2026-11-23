@@ -120,6 +120,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "academic", label: "Academic Catalog", icon: FolderTree },
     { id: "books", label: "Books & Splitter", icon: Library },
+    { id: "book-builder", label: "Book Builder", icon: FolderTree },
     { id: "processing", label: "Book Processing", icon: FileUp },
     { id: "editor", label: "Book Editor", icon: FileEdit },
     { id: "ai-studio", label: "AI Content Studio", icon: Sparkles },

@@ -13,6 +13,10 @@ const bookSchema = z.object({
   accessTier: z.string().optional(),
   coverColor: z.string().optional(),
   description: z.string().optional(),
+  publisher: z.string().optional(),
+  edition: z.string().optional(),
+  publishYear: z.number().optional(),
+  isbn: z.string().optional(),
   totalTopics: z.number().optional(),
   isPublished: z.boolean().optional(),
 })

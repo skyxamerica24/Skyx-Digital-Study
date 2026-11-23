@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { Type } from "@google/genai";
 import { parseValidatedJson, questionGenSchema } from "@/lib/api-schemas";
 import { getGeminiClient, GEMINI_MODELS, formatGeminiError } from "@/lib/gemini-server";
-import { resolveChannelConfig, getUserFromRequestCookie, createToolRunDirect } from "@/lib/actions/ai-history-actions";
+import { resolveChannelConfig, createToolRunDirect } from "@/lib/actions/ai-history-actions";
+import { getUserFromRequestCookie } from "@/lib/auth/request-user";
 
 export async function POST(req: NextRequest) {
   try {
